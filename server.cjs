@@ -16,8 +16,11 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000}={}){
   http.on('error',e=>wss.emit('error',e));
   function send(ws,m){if(ws.readyState===WebSocket.OPEN&&ws.bufferedAmount<1024*1024)ws.send(JSON.stringify(m));}
   const broadcast=(room,m,except)=>{for(const p of room.players.values())if(p!==except)send(p,m);};
-  const state=room=>broadcast(room,{type:'room',code:room.code,hostId:room.hostId,meta:room.meta,players:[...room.players.values()].map(p=>({id:p.id,name:p.name,ready:p.ready}))});
-  function cancel(room,message){room.start=null;for(const p of room.players.values()){p.ready=false;p.finished=false;p.lastTime=-1;}broadcast(room,{type:'cancel',message});state(room);}
+  const state=room=>broadcast(room,{type:'room',code:room.code,hostId:room.hostId,meta:room.meta,checking:!!room.check,players:[...room.players.values()].map(p=>({id:p.id,name:p.name,ready:p.ready}))});
+  function resetReady(room){room.check=false;room.start=null;for(const p of room.players.values()){p.ready=false;p.finished=false;p.lastTime=-1;}}
+  function cancel(room,message){resetReady(room);broadcast(room,{type:'cancel',message});state(room);}
+  function allReady(room){return room.players.size>=2&&[...room.players.values()].every(p=>p.ready&&core.compatible(room.meta,p.meta));}
+  function beginRace(room){room.check=false;room.start=Date.now()+countdown;for(const p of room.players.values()){p.lastTime=-1;p.finished=false;}broadcast(room,{type:'start',at:room.start});}
   function leave(ws){
     const room=ws.room;if(!room)return;room.players.delete(ws.id);ws.room=null;
     if(!room.players.size){rooms.delete(room.code);return;}
@@ -41,7 +44,7 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000}={}){
           if(ws.room)throw Error('Leave the current room first');if(m.protocol!==core.VERSION&&m.meta?.protocol!==core.VERSION)throw Error('Unsupported game protocol');if(m.meta!=null&&!validMeta(m.meta))throw Error('Invalid level');
           let room;
           if(m.type==='create'){
-            if(rooms.size>=100)throw Error('Relay is full');const code=randomBytes(8).toString('hex').toUpperCase();room={code,hostId:ws.id,meta:m.meta||null,players:new Map(),start:null};rooms.set(code,room);
+            if(rooms.size>=100)throw Error('Relay is full');const code=randomBytes(8).toString('hex').toUpperCase();room={code,hostId:ws.id,meta:m.meta||null,players:new Map(),start:null,check:false};rooms.set(code,room);
           }else{
             room=rooms.get(String(m.code));if(!room)throw Error('Room not found');if(room.start)throw Error('Race in progress');
             if(room.players.size>=8)throw Error('Room is full');
@@ -57,20 +60,42 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000}={}){
         }
         if(m.type==='level'){
           if(!validMeta(m.meta))throw Error('Invalid level');
-          if(room.start&&core.compatible(room.meta,m.meta)){ws.meta=m.meta;return;}
+          if(room.start&&core.compatible(room.meta,m.meta)){ws.meta=m.meta;state(room);return;}
           ws.meta=m.meta;ws.ready=false;
           if(!room.meta||(ws.id===room.hostId&&!core.compatible(room.meta,m.meta))){
             const moved=!core.compatible(room.meta,m.meta);
-            room.meta=m.meta;state(room);
-            if(moved)broadcast(room,{type:'travel',meta:room.meta},ws);
+            room.meta=m.meta;
+            if(moved){
+              resetReady(room);
+              state(room);
+              broadcast(room,{type:'travel',meta:room.meta},ws);
+            }else state(room);
             return;
           }
-          if(room.start||!core.compatible(room.meta,m.meta))cancel(room,'Level changed. All racers must ready up again.');else state(room);return;
+          if(room.start&&!core.compatible(room.meta,m.meta))cancel(room,'Level changed. All racers must ready up again.');
+          else state(room);
+          return;
         }
         if(m.type==='ready'){
           if(!validMeta(m.meta)||!core.compatible(room.meta,m.meta))throw Error('Level does not match this room');
-          if(room.start)throw Error('Restart before the next race');ws.ready=true;ws.meta=m.meta;state(room);
-          if(room.players.size>=2&&[...room.players.values()].every(p=>p.ready&&core.compatible(room.meta,p.meta))){room.start=Date.now()+countdown;for(const p of room.players.values()){p.lastTime=-1;p.finished=false;}broadcast(room,{type:'start',at:room.start});}
+          if(ws.id===room.hostId){
+            if(room.players.size<2)throw Error('Need another racer before starting');
+            resetReady(room);room.check=true;ws.ready=true;ws.meta=m.meta;state(room);
+            broadcast(room,{type:'readyCheck',name:ws.name,meta:room.meta});
+            return;
+          }
+          if(!room.check)throw Error('Wait for the host to ask if everyone is ready');
+          if(room.start)throw Error('Race already starting');
+          ws.ready=true;ws.meta=m.meta;state(room);
+          if(allReady(room))beginRace(room);
+          return;
+        }
+        if(m.type==='notReady'){
+          if(ws.id===room.hostId||!room.check)return;
+          const name=ws.name||'A racer';
+          const text=name+' declined ready. The host will have to ask again.';
+          broadcast(room,{type:'readyDeclined',name,message:text});
+          cancel(room,text);
           return;
         }
         if(m.type==='frame'){
