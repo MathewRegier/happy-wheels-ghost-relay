@@ -91,7 +91,8 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000}={}){
           return;
         }
         if(m.type==='notReady'){
-          if(ws.id===room.hostId||!room.check)return;
+          if(ws.id===room.hostId)return;
+          if(!room.check&&![...room.players.values()].some(p=>p.ready))return;
           const name=ws.name||'A racer';
           const text=name+' declined ready. The host will have to ask again.';
           broadcast(room,{type:'readyDeclined',name,message:text});
