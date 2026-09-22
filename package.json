@@ -1,0 +1,16 @@
+{
+  "name": "happy-wheels-ghost-relay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WebSocket room relay for Happy Wheels ghost racing. Deploy this folder to Railway.",
+  "main": "server.cjs",
+  "scripts": {
+    "start": "node server.cjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "8.20.0"
+  }
+}
