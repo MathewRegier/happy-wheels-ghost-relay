@@ -18,7 +18,12 @@
     if(!b || b.t<=a.t || t<=a.t) return a;
     if(t>=b.t) return b;
     const u=(t-a.t)/(b.t-a.t), other=new Map(b.parts.map(p=>[p[0],p]));
-    return {...a,t,parts:a.parts.map(p=>{
+    const mix=(key,fallback=0)=>{
+      const av=Number(a[key]),bv=Number(b[key]);
+      if(Number.isFinite(av)&&Number.isFinite(bv))return av+(bv-av)*u;
+      return Number.isFinite(bv)?bv:Number.isFinite(av)?av:fallback;
+    };
+    return {...a,t,progress:mix('progress'),current:mix('current'),best:mix('best'),parts:a.parts.map(p=>{
       const q=other.get(p[0]); if(!q||q[1]!==p[1])return p;
       const out=p.slice();
       for(let i=2;i<=8;i++)out[i]=p[i]+(q[i]-p[i])*u;

@@ -57,7 +57,7 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000}={}){
         }
         if(m.type==='level'){
           if(!validMeta(m.meta))throw Error('Invalid level');
-          if(room.start&&Date.now()<room.start&&core.compatible(room.meta,m.meta))return;
+          if(room.start&&core.compatible(room.meta,m.meta)){ws.meta=m.meta;return;}
           ws.meta=m.meta;ws.ready=false;
           if(!room.meta||(ws.id===room.hostId&&!core.compatible(room.meta,m.meta))){
             const moved=!core.compatible(room.meta,m.meta);
@@ -65,7 +65,7 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000}={}){
             if(moved)broadcast(room,{type:'travel',meta:room.meta},ws);
             return;
           }
-          if(room.start||!core.compatible(room.meta,m.meta))cancel(room,'Level restarted or changed. All racers must ready up again.');else state(room);return;
+          if(room.start||!core.compatible(room.meta,m.meta))cancel(room,'Level changed. All racers must ready up again.');else state(room);return;
         }
         if(m.type==='ready'){
           if(!validMeta(m.meta)||!core.compatible(room.meta,m.meta))throw Error('Level does not match this room');
