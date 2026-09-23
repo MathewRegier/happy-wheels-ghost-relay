@@ -5,11 +5,11 @@
     {
       "id": "jimbobs-custom-characters",
       "name": "Jimbob's Custom Characters",
-      "version": "0.4.0",
+      "version": "0.1.0",
       "author": "Jimbob \u00b7 Discord jimbob1111",
       "description": "Extra playable characters. Clone a vanilla sheet, set a base (segway is 2), and it shows up as a new slot on the character menu.",
-      "file": "zips/jimbobs-custom-characters-0.4.0.zip",
-      "sha256": "860cbcca3f4994cce9144232a4a478757b82fbb3ee78323d47c8797cd89e5a4a"
+      "file": "zips/jimbobs-custom-characters-0.1.0.zip",
+      "sha256": "709829d6c60bea1212b923d110fdc415192f5b52cd9293d7f9766a2f5eb0d133"
     },
     {
       "id": "jimbobs-multiplayer",
