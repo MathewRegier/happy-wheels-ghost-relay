@@ -11,6 +11,8 @@ import urllib.error
 import urllib.request
 import zipfile
 
+from launcher_version import USER_AGENT
+
 DEFAULT_CATALOG_URL = os.environ.get(
     'HW_MOD_CATALOG_URL',
     'https://raw.githubusercontent.com/MathewRegier/happy-wheels-ghost-relay/main/mod-store/catalog.json',
@@ -38,7 +40,7 @@ def is_newer(remote: object, local: object) -> bool:
 def _read_url(url: str, timeout: int = 20) -> bytes:
     if not url.startswith('https://'):
         raise ValueError('Mod library URLs must use https.')
-    request = urllib.request.Request(url, headers={'User-Agent': 'HappyWheelsModLauncher/0.1.6'})
+    request = urllib.request.Request(url, headers={'User-Agent': USER_AGENT})
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return response.read()
 

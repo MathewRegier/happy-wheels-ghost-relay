@@ -20,5 +20,10 @@
       "file": "zips/jimbobs-multiplayer-0.2.6.zip",
       "sha256": "36f075fbcf036474d06adb56503cc27dbbe563ed015b80cbde19e85535ec6c78"
     }
-  ]
+  ],
+  "launcher": {
+    "version": "0.1.7",
+    "file": "zips/Happy-Wheels-Mod-Launcher-0.1.7.zip",
+    "sha256": "217056b4255fd6aeb2e4d6f83e1d1fb4da96e319d466af00cce4cddbc78685eb"
+  }
 }

@@ -12,6 +12,8 @@ import struct
 import sys
 import time
 
+from launcher_version import VERSION
+
 
 def project_root() -> pathlib.Path:
     if getattr(sys, 'frozen', False):
@@ -285,7 +287,7 @@ def install(source: pathlib.Path, dest: pathlib.Path | None = None, enabled_ids:
         except (OSError, KeyError) as error:
             raise ValueError('Missing original game file: ' + name) from error
         if actual != expected:
-            raise ValueError('Unsupported Happy Wheels build: ' + name + '. This pack supports Happy Wheels 1.99.1. If Steam just updated, grab the newest launcher.')
+            raise ValueError('Unsupported Happy Wheels build: ' + name + '. This pack supports Happy Wheels 1.99.1. If Steam just updated, open this launcher again so it can update itself, then press Install.')
 
     probe = game / '.hw-mod-write-test'
     try:
@@ -361,6 +363,10 @@ def install(source: pathlib.Path, dest: pathlib.Path | None = None, enabled_ids:
     out = app / 'electron' / 'out'
     shutil.copyfile(core_dir / 'mod-catalog.cjs', out / 'hw-mod-catalog.js')
     shutil.copyfile(core_dir / 'mod-loader-main.cjs', out / 'hw-mod-loader.js')
+    runtime = resources / 'mod-runtime'
+    runtime.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(core_dir / 'asset-override.js', runtime / 'asset-override.js')
+    shutil.copyfile(core_dir / 'asset-override.js', webroot_js / 'hw-asset-override.js')
     (webroot_js / 'hw-mod-boot.js').write_text(
         '// Replaced when Happy Wheels starts. Drop a folder into mods and restart the game.\n',
         encoding='utf-8',
@@ -407,7 +413,7 @@ def install(source: pathlib.Path, dest: pathlib.Path | None = None, enabled_ids:
         shutil.rmtree(app)
     (game / 'install.json').write_text(json.dumps({
         'gameVersion': '1.99.1',
-        'launcherVersion': '0.1.6',
+        'launcherVersion': VERSION,
         'source': str(game),
         'inPlace': True,
         'dropInMods': True,

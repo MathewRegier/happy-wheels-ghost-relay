@@ -21,6 +21,8 @@ else:
     sys.path.insert(0, str(BUNDLE / 'tools'))
 
 from packager import find_happy_wheels, install, looks_like_game, project_root  # noqa: E402
+from launcher_update import apply_and_restart, check_for_update, download_update  # noqa: E402
+from launcher_version import VERSION  # noqa: E402
 from mod_store import DEFAULT_CATALOG_URL, sync_mods  # noqa: E402
 
 INK = '#f3ead6'
@@ -34,7 +36,6 @@ LINE = '#3b4a44'
 PATH_BG = '#0d1210'
 STEPS = ('welcome', 'locate', 'mods', 'install', 'done')
 STEP_LABELS = ('Welcome', 'Find the game', 'Choose mods', 'Install', 'Ready')
-VERSION = '0.1.6'
 CREDITS = 'Created by Jimbob · Discord jimbob1111'
 
 
@@ -81,6 +82,7 @@ class Launcher(tk.Tk):
         self.game_status = tk.StringVar()
         self.install_status = tk.StringVar(value='Starting…')
         self.store_status = tk.StringVar(value='Checking the online mod library…')
+        self.update_status = tk.StringVar(value='Checking for launcher updates…')
         self.done_path = tk.StringVar()
         self.step = 'welcome'
         self.mod_vars: list[tuple[dict, tk.BooleanVar]] = []
@@ -89,6 +91,7 @@ class Launcher(tk.Tk):
         self.step_labels: list[tk.Label] = []
         self._build()
         self.after(50, self._detect)
+        self.after(80, self._check_launcher_update)
 
     def _build(self) -> None:
         root = tk.Frame(self, bg=STEEL)
@@ -127,7 +130,7 @@ class Launcher(tk.Tk):
         ).pack(side='bottom', anchor='w')
         tk.Label(
             rail,
-            text='Keep this launcher for mod updates. If the game updates, run a new launcher.',
+            text='Keep this launcher. It updates itself and can re-patch the game after a Steam update.',
             fg='#8b968e', bg=RAIL, font=('Georgia', 9), wraplength=200, justify='left',
         ).pack(side='bottom', anchor='w', pady=(0, 10))
 
@@ -136,6 +139,7 @@ class Launcher(tk.Tk):
         stage.grid_rowconfigure(0, weight=1)
         stage.grid_columnconfigure(0, weight=1)
 
+        self.pages['update'] = self._page_update(stage)
         self.pages['welcome'] = self._page_welcome(stage)
         self.pages['locate'] = self._page_locate(stage)
         self.pages['mods'] = self._page_mods(stage)
@@ -183,7 +187,7 @@ class Launcher(tk.Tk):
         note = self._card(page)
         tk.Label(
             note,
-            text='Built for Happy Wheels 1.99.1 by Jimbob.\n\nKeep this launcher and open it for future mod updates.\n\nIf the game ever updates, reinstall the launcher once it is updated to work with the new Happy Wheels version.',
+            text='Built for Happy Wheels 1.99.1 by Jimbob.\n\nKeep this launcher and open it for future mod or launcher updates.\n\nIf the game ever updates, open this launcher again. It will update itself, then you can press Install to re-patch Happy Wheels.',
             fg='#9aa79e', bg=CARD, font=('Georgia', 11), justify='left', wraplength=600,
         ).pack(anchor='w')
         self._button(self._actions(page), 'Continue', lambda: self.show('locate'), primary=True)
@@ -238,13 +242,31 @@ class Launcher(tk.Tk):
         tk.Label(card, textvariable=self.install_status, fg=MINT, bg=CARD, font=('Georgia', 11), wraplength=560, justify='left').pack(anchor='w', pady=(10, 0))
         return page
 
+    def _page_update(self, parent: tk.Widget) -> tk.Frame:
+        page = tk.Frame(parent, bg=STEEL)
+        self._heading(
+            page,
+            'Update available.',
+            'A newer launcher is ready. It will download, replace this copy, and restart on its own.',
+        )
+        card = self._card(page)
+        style = ttk.Style()
+        style.theme_use('clam')
+        style.configure('Mod.Horizontal.TProgressbar', troughcolor=PATH_BG, background=CORAL, bordercolor=LINE, lightcolor=CORAL, darkcolor=CORAL)
+        self.update_bar = ttk.Progressbar(card, style='Mod.Horizontal.TProgressbar', maximum=100, mode='determinate')
+        self.update_bar.pack(fill='x')
+        tk.Label(card, textvariable=self.update_status, fg=MINT, bg=CARD, font=('Georgia', 11), wraplength=560, justify='left').pack(anchor='w', pady=(10, 0))
+        actions = self._actions(page)
+        self._update_skip = self._button(actions, 'Continue without updating', lambda: self.show('welcome'))
+        return page
+
     def _page_done(self, parent: tk.Widget) -> tk.Frame:
         page = tk.Frame(parent, bg=STEEL)
         tk.Label(page, text='OK', fg=CORAL, bg=STEEL, font=('Georgia', 42, 'bold')).pack(anchor='w')
         self._heading(
             page,
             'Ready to play.',
-            'Keep this launcher and open it for future mod updates. If Happy Wheels updates, run a new launcher once it is updated.\n\nCreated by Jimbob · Discord jimbob1111',
+            'Keep this launcher and open it for future mod or launcher updates. If Happy Wheels updates, open the launcher again so it can update itself and re-patch the game.\n\nCreated by Jimbob · Discord jimbob1111',
         )
         tk.Label(page, textvariable=self.done_path, fg='#9aa79e', bg=STEEL, font=('Consolas', 10), wraplength=620, justify='left').pack(anchor='w')
         actions = self._actions(page)
@@ -257,9 +279,57 @@ class Launcher(tk.Tk):
         for page in self.pages.values():
             page.grid_forget()
         self.pages[name].grid(row=0, column=0, sticky='nsew')
-        index = STEPS.index(name)
+        index = STEPS.index(name) if name in STEPS else 0
         for i, label in enumerate(self.step_labels):
             label.configure(fg=INK if i <= index else MUTED)
+
+    def _check_launcher_update(self) -> None:
+        def run():
+            try:
+                info = check_for_update(VERSION, self.catalog_url)
+                if info:
+                    self.after(0, lambda: self._begin_self_update(info))
+            except Exception:
+                write_log(traceback.format_exc())
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _begin_self_update(self, info: dict) -> None:
+        notes = info.get('notes') or f'v{info["version"]}'
+        self.update_status.set(f'Update available: v{info["version"]}. {notes}\nDownloading…')
+        self.update_bar['value'] = 8
+        self.show('update')
+        if hasattr(self, '_update_skip'):
+            self._update_skip.configure(state='disabled')
+
+        def run():
+            try:
+                if not getattr(sys, 'frozen', False):
+                    raise RuntimeError('This is a source build, so it cannot replace an EXE. Download the new launcher once.')
+                path = download_update(info, self.catalog_url)
+                self.after(0, lambda: self._apply_self_update(path, info))
+            except Exception as error:
+                write_log(traceback.format_exc())
+                self.after(0, lambda: self._self_update_failed(str(error)))
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _apply_self_update(self, path: pathlib.Path, info: dict) -> None:
+        self.update_bar['value'] = 90
+        self.update_status.set(f'Installing v{info["version"]} and restarting…')
+        try:
+            apply_and_restart(path)
+        except SystemExit:
+            self.destroy()
+        except Exception as error:
+            write_log(traceback.format_exc())
+            self._self_update_failed(str(error))
+
+    def _self_update_failed(self, error: str) -> None:
+        self.update_bar['value'] = 0
+        self.update_status.set('Could not update automatically: ' + error + '\nYou can keep using this launcher, or download the newest EXE.')
+        if hasattr(self, '_update_skip'):
+            self._update_skip.configure(state='normal')
 
     def _detect(self) -> None:
         try:
