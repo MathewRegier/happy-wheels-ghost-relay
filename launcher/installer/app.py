@@ -1,4 +1,4 @@
-"""Happy Wheels Mod Launcher — desktop installer for friends who do not have Python or Node."""
+"""JHWML - Mod Launcher — desktop installer for friends who do not have Python or Node."""
 from __future__ import annotations
 
 import os
@@ -22,7 +22,7 @@ else:
 
 from packager import find_happy_wheels, install, looks_like_game, project_root  # noqa: E402
 from launcher_update import apply_and_restart, check_for_update, download_update  # noqa: E402
-from launcher_version import VERSION  # noqa: E402
+from launcher_version import NAME, VERSION  # noqa: E402
 from mod_store import DEFAULT_CATALOG_URL, sync_mods  # noqa: E402
 
 INK = '#f3ead6'
@@ -58,7 +58,7 @@ def write_log(text: str) -> None:
 class Launcher(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title(f'Happy Wheels Mod Launcher {VERSION}')
+        self.title(f'{NAME} {VERSION}')
         icon = BUNDLE / 'installer' / 'icon.ico'
         if icon.is_file():
             try:
@@ -111,8 +111,8 @@ class Launcher(tk.Tk):
         stamp.configure(highlightbackground=CORAL)
         stamp.pack(anchor='w')
 
-        tk.Label(rail, text='Mod Launcher', fg=INK, bg=RAIL, font=('Georgia', 22, 'bold')).pack(anchor='w', pady=(18, 0))
-        tk.Label(rail, text='Happy Wheels', fg=CORAL, bg=RAIL, font=('Georgia', 12)).pack(anchor='w', pady=(2, 6))
+        tk.Label(rail, text='JHWML', fg=INK, bg=RAIL, font=('Georgia', 22, 'bold')).pack(anchor='w', pady=(18, 0))
+        tk.Label(rail, text='Mod Launcher', fg=CORAL, bg=RAIL, font=('Georgia', 12)).pack(anchor='w', pady=(2, 6))
         tk.Label(rail, text=f'v{VERSION}', fg=MINT, bg=RAIL, font=('Georgia', 11, 'bold')).pack(anchor='w', pady=(0, 16))
 
         for index, label in enumerate(STEP_LABELS, start=1):

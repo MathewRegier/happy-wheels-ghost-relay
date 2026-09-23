@@ -10,11 +10,10 @@ import zipfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
-from launcher_version import VERSION  # noqa: E402
+from launcher_version import EXE_NAME, LEGACY_EXE_NAME, NAME, VERSION  # noqa: E402
 
 STORE = ROOT / 'mod-store'
 RELAY_STORE = ROOT / 'relay' / 'mod-store'
-EXE_NAME = 'Happy Wheels Mod Launcher.exe'
 
 
 def sha256_file(path: pathlib.Path) -> str:
@@ -29,21 +28,22 @@ def main() -> None:
     exe = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / 'dist' / EXE_NAME
     if not exe.is_file():
         raise SystemExit('Built launcher EXE not found: ' + str(exe))
-    name = f'Happy-Wheels-Mod-Launcher-{VERSION}.zip'
+    name = f'JHWML-Mod-Launcher-{VERSION}.zip'
     (STORE / 'zips').mkdir(parents=True, exist_ok=True)
     dest = STORE / 'zips' / name
     if dest.exists():
         dest.unlink()
     with zipfile.ZipFile(dest, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
         archive.write(exe, EXE_NAME)
+        archive.write(exe, LEGACY_EXE_NAME)
     digest = sha256_file(dest)
     payload = {
-        'id': 'happy-wheels-mod-launcher',
-        'name': 'Happy Wheels Mod Launcher',
+        'id': 'jhwml-mod-launcher',
+        'name': NAME,
         'version': VERSION,
         'file': 'zips/' + name,
         'sha256': digest,
-        'notes': 'Supports the latest Steam Happy Wheels update and can update itself.',
+        'notes': 'Now called JHWML - Mod Launcher.',
     }
     (STORE / 'launcher.json').write_text(json.dumps(payload, indent=2) + '\n', encoding='utf-8')
     catalog_path = STORE / 'catalog.json'

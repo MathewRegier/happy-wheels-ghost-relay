@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot\..
 python -m pip install --disable-pip-version-check pyinstaller
-python -m PyInstaller --noconfirm --clean --windowed --onefile --noupx --name "Happy Wheels Mod Launcher" `
+python -m PyInstaller --noconfirm --clean --windowed --onefile --noupx --name "JHWML - Mod Launcher" `
   --icon installer\icon.ico `
   --paths tools `
   --hidden-import packager `
@@ -19,4 +19,4 @@ python -m PyInstaller --noconfirm --clean --windowed --onefile --noupx --name "H
   --add-data "installer\icon.png;installer" `
   --add-data "node_modules\ws;node_modules\ws" `
   installer\app.py
-Write-Output "Built: $PWD\dist\Happy Wheels Mod Launcher.exe"
+Write-Output "Built: $PWD\dist\JHWML - Mod Launcher.exe"

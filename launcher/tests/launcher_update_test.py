@@ -19,16 +19,17 @@ class LauncherUpdateTests(unittest.TestCase):
         blob = io.BytesIO()
         with zipfile.ZipFile(blob, 'w') as archive:
             archive.writestr('other.exe', b'nope')
-            archive.writestr('Happy Wheels Mod Launcher.exe', b'ok-launcher')
+            archive.writestr('Happy Wheels Mod Launcher.exe', b'legacy')
+            archive.writestr('JHWML - Mod Launcher.exe', b'ok-launcher')
         with tempfile.TemporaryDirectory() as temp:
             path = extract_launcher_exe(blob.getvalue(), pathlib.Path(temp) / 'out')
-            self.assertEqual(path.name, 'Happy Wheels Mod Launcher.exe')
+            self.assertEqual(path.name, 'JHWML - Mod Launcher.exe')
             self.assertEqual(path.read_bytes(), b'ok-launcher')
 
     def test_rejects_bad_checksum(self):
         blob = io.BytesIO()
         with zipfile.ZipFile(blob, 'w') as archive:
-            archive.writestr('Happy Wheels Mod Launcher.exe', b'ok-launcher')
+            archive.writestr('JHWML - Mod Launcher.exe', b'ok-launcher')
         with tempfile.TemporaryDirectory() as temp:
             os.environ['HW_MOD_CACHE'] = temp
             self.addCleanup(lambda: os.environ.pop('HW_MOD_CACHE', None))
@@ -45,16 +46,16 @@ class LauncherUpdateTests(unittest.TestCase):
     def test_check_for_update_detects_newer(self):
         original = launcher_update.fetch_launcher_manifest
         launcher_update.fetch_launcher_manifest = lambda _url=None: {
-            'version': '0.1.8',
-            'file': 'zips/Happy-Wheels-Mod-Launcher-0.1.8.zip',
+            'version': '0.1.9',
+            'file': 'zips/JHWML-Mod-Launcher-0.1.9.zip',
             'sha256': '',
             'notes': '',
-            'name': 'Happy Wheels Mod Launcher',
+            'name': 'JHWML - Mod Launcher',
         }
         self.addCleanup(lambda: setattr(launcher_update, 'fetch_launcher_manifest', original))
-        info = check_for_update('0.1.7')
-        self.assertEqual(info['version'], '0.1.8')
-        self.assertIsNone(check_for_update('0.1.8'))
+        info = check_for_update('0.1.8')
+        self.assertEqual(info['version'], '0.1.9')
+        self.assertIsNone(check_for_update('0.1.9'))
 
     def test_writes_replace_script_and_dry_run(self):
         with tempfile.TemporaryDirectory() as temp:

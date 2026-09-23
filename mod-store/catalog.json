@@ -22,8 +22,8 @@
     }
   ],
   "launcher": {
-    "version": "0.1.7",
-    "file": "zips/Happy-Wheels-Mod-Launcher-0.1.7.zip",
-    "sha256": "217056b4255fd6aeb2e4d6f83e1d1fb4da96e319d466af00cce4cddbc78685eb"
+    "version": "0.1.8",
+    "file": "zips/JHWML-Mod-Launcher-0.1.8.zip",
+    "sha256": "8767104189354d508d5469a8bb28cbb05a936abc82b9725b9255d13e239dc0b2"
   }
 }

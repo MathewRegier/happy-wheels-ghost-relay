@@ -11,7 +11,7 @@ import tempfile
 import urllib.error
 import zipfile
 
-from launcher_version import VERSION
+from launcher_version import EXE_NAME, LEGACY_EXE_NAME, NAME, VERSION
 from mod_store import DEFAULT_CATALOG_URL, _read_url, _safe_extract, cache_dir, catalog_base, is_newer
 
 
@@ -29,7 +29,7 @@ def fetch_launcher_manifest(url: str | None = None) -> dict:
         raise ValueError('Launcher update catalog is missing a version or file.')
     return {
         'version': version,
-        'name': str(data.get('name') or 'Happy Wheels Mod Launcher'),
+        'name': str(data.get('name') or NAME),
         'file': file_name,
         'sha256': str(data.get('sha256') or '').lower(),
         'notes': str(data.get('notes') or ''),
@@ -59,10 +59,8 @@ def extract_launcher_exe(blob: bytes, dest: pathlib.Path) -> pathlib.Path:
         candidates = [path for path in unpacked.rglob('*.exe') if path.is_file()]
         if not candidates:
             raise ValueError('The launcher update zip did not contain an EXE.')
-        chosen = next(
-            (path for path in candidates if path.name.lower() == 'happy wheels mod launcher.exe'),
-            candidates[0],
-        )
+        by_name = {path.name.lower(): path for path in candidates}
+        chosen = by_name.get(EXE_NAME.lower()) or by_name.get(LEGACY_EXE_NAME.lower()) or candidates[0]
         target = dest / chosen.name
         target.write_bytes(chosen.read_bytes())
         return target
