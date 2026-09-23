@@ -5,11 +5,11 @@
     {
       "id": "jimbobs-multiplayer",
       "name": "Jimbob's Multiplayer Mod",
-      "version": "0.1.1",
-      "author": "Jimbob",
-      "description": "Race friends as translucent ghosts. Shared countdown, respawn-safe ghosts, a live scoreboard, and a hosted online relay.",
-      "file": "zips/jimbobs-multiplayer-0.1.1.zip",
-      "sha256": "f866fca609359182ee3188e7dd207de3e6ac295e88d3c1b219880ca74e0ecf51"
+      "version": "0.1.2",
+      "author": "Jimbob \u00b7 Discord jimbob1111",
+      "description": "Race friends as translucent ghosts. Shared countdown, respawn-safe ghosts, a live scoreboard, and a hosted online relay. Created by Jimbob \u2014 Discord jimbob1111.",
+      "file": "zips/jimbobs-multiplayer-0.1.2.zip",
+      "sha256": "a5e12a0257d05488d6c2035391022bfa53ff2eb06fca80294603e8ae4892b5ba"
     }
   ]
 }
