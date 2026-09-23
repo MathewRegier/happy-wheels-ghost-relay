@@ -5,20 +5,20 @@
     {
       "id": "jimbobs-custom-characters",
       "name": "Jimbob's Custom Characters",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "author": "Jimbob \u00b7 Discord jimbob1111",
       "description": "Extra playable characters. Clone a vanilla sheet, set a base (segway is 2), and it shows up as a new slot on the character menu.",
-      "file": "zips/jimbobs-custom-characters-0.1.0.zip",
-      "sha256": "709829d6c60bea1212b923d110fdc415192f5b52cd9293d7f9766a2f5eb0d133"
+      "file": "zips/jimbobs-custom-characters-0.1.1.zip",
+      "sha256": "2a850fd7e544e5b7f15f392f3840474bcb7537f72ed707afb2b4d8b9dc48f427"
     },
     {
       "id": "jimbobs-multiplayer",
       "name": "Jimbob's Multiplayer Mod",
-      "version": "0.2.4",
+      "version": "0.2.5",
       "author": "Jimbob \u00b7 Discord jimbob1111",
       "description": "Race friends as translucent ghosts. Shared countdown, respawn-safe ghosts, a live scoreboard, and a hosted online relay. Custom character skins show on ghosts when both players have the same pack. Created by Jimbob \u2014 Discord jimbob1111.",
-      "file": "zips/jimbobs-multiplayer-0.2.4.zip",
-      "sha256": "b9390fcaebdc76d130437a42dea7f981f2aa901f1a3ae242479ae3cceb7fc401"
+      "file": "zips/jimbobs-multiplayer-0.2.5.zip",
+      "sha256": "49293ca1185bb7c35f3837536eda8bf478911b3ea7d15ca01ae2122b28996629"
     }
   ]
 }
