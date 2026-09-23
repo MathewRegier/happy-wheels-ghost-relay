@@ -6,9 +6,57 @@ const core=require('./core.js');
 
 function createRelay({host='127.0.0.1',port=19799,countdown=3000}={}){
   const rooms=new Map();
+  const startedAt=Date.now();
+  const totals={connections:0,roomsCreated:0,racesStarted:0,finishes:0};
+  function snapshot(){
+    const roomList=[];
+    let players=0,racing=0,checking=0;
+    for(const room of rooms.values()){
+      players+=room.players.size;
+      if(room.start)racing++;
+      if(room.check)checking++;
+      roomList.push({
+        players:[...room.players.values()].map(p=>({
+          name:String(p.name||'Racer').slice(0,24),
+          host:p.id===room.hostId,
+          phase:playerPhase(room,p),
+          ready:!!p.ready,
+          finished:!!p.finished
+        })),
+        level:room.meta&&typeof room.meta.level==='string'?room.meta.level:null,
+        racing:!!room.start,
+        checking:!!room.check
+      });
+    }
+    return {ok:true,name:"Jimbob's Multiplayer relay",now:Date.now(),uptimeSec:Math.max(0,Math.floor((Date.now()-startedAt)/1000)),connections:wss.clients.size,rooms:rooms.size,players,racing,checking,totals:{...totals},roomList};
+  }
+  function renderStats(data){
+    const ago=data.uptimeSec>=3600?Math.floor(data.uptimeSec/3600)+'h '+Math.floor(data.uptimeSec%3600/60)+'m':data.uptimeSec>=60?Math.floor(data.uptimeSec/60)+'m '+data.uptimeSec%60+'s':data.uptimeSec+'s';
+    const rows=data.roomList.length?data.roomList.map((room,i)=>{
+      const status=room.racing?'Racing':room.checking?'Ready check':room.level?'On level':'Lobby';
+      const people=room.players.map(p=>p.name+(p.host?' (host)':'')+(p.ready?' ready':'')+(p.finished?' finished':'')+' · '+p.phase).join('<br>');
+      return `<tr><td>${i+1}</td><td>${room.level||'—'}<\/td><td>${status}<\/td><td>${room.players.length}<\/td><td>${people}<\/td><\/tr>`;
+    }).join(''):'<tr><td colspan="5">No rooms right now.<\/td><\/tr>';
+    return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Relay stats</title><style>body{margin:24px;background:#12202a;color:#e8eef3;font:16px/1.45 Georgia,serif}h1{font-size:28px;margin:0 0 8px}p,th,td{font-family:system-ui,sans-serif}p{color:#b8c6d0}.grid{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0 22px}.card{background:#1c2e3b;border:1px solid #3a5363;border-radius:8px;padding:12px 14px;min-width:110px}.card b{display:block;font-size:26px;color:#fff}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #355060;vertical-align:top}th{color:#9eb0bb;font-size:13px}</style><h1>Jimbob's Multiplayer relay</h1><p>Live rooms and players · up ${ago} · refresh for a new snapshot</p><div class="grid"><div class="card"><b>${data.rooms}</b>rooms</div><div class="card"><b>${data.players}</b>players</div><div class="card"><b>${data.racing}</b>racing</div><div class="card"><b>${data.connections}</b>connections</div><div class="card"><b>${data.totals.roomsCreated}</b>rooms ever</div><div class="card"><b>${data.totals.racesStarted}</b>races started</div><div class="card"><b>${data.totals.finishes}</b>finishes</div></div><table><thead><tr><th>#</th><th>Level</th><th>Status</th><th>People</th><th>Players</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+  function statsAllowed(req){
+    const need=process.env.HW_RELAY_STATS_TOKEN;
+    if(!need)return true;
+    const url=new URL(req.url||'/', 'http://localhost');
+    const auth=String(req.headers.authorization||'').replace(/^Bearer\s+/i,'');
+    return url.searchParams.get('token')===need||auth===need;
+  }
   const http=createServer((req,res)=>{
+    const url=new URL(req.url||'/', 'http://localhost');
+    if(url.pathname==='/stats'||url.pathname==='/stats.json'){
+      if(!statsAllowed(req)){res.writeHead(401,{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'});res.end('Stats token required\n');return;}
+      const data=snapshot();
+      const wantJson=url.pathname==='/stats.json'||url.searchParams.get('format')==='json'||String(req.headers.accept||'').includes('application/json');
+      if(wantJson){res.writeHead(200,{'content-type':'application/json; charset=utf-8','cache-control':'no-store'});res.end(JSON.stringify(data,null,2)+'\n');return;}
+      res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});res.end(renderStats(data));return;
+    }
     res.writeHead(200,{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'});
-    res.end('Happy Wheels ghost racing relay\n');
+    res.end('Happy Wheels ghost racing relay\nStats: /stats\n');
   });
   const wss=new WebSocketServer({server:http,maxPayload:512*1024,perMessageDeflate:false});
   wss.address=()=>http.address();
@@ -37,7 +85,7 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000}={}){
     if(ws.phase===phase)return false;
     ws.phase=phase;return true;
   }
-  function beginRace(room){room.check=false;room.start=Date.now()+countdown;for(const p of room.players.values()){p.lastTime=-1;p.finished=false;}broadcast(room,{type:'start',at:room.start});}
+  function beginRace(room){room.check=false;room.start=Date.now()+countdown;for(const p of room.players.values()){p.lastTime=-1;p.finished=false;}totals.racesStarted++;broadcast(room,{type:'start',at:room.start});}
   function leave(ws){
     const room=ws.room;if(!room)return;
     const racing=!!room.start;
@@ -51,6 +99,7 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000}={}){
   }
   function validMeta(m){return m&&m.protocol===core.VERSION&&typeof m.level==='string'&&/^[1-9][0-9]{0,8}$/.test(m.level)&&typeof m.hash==='string'&&/^[a-f0-9]{64}$/.test(m.hash);}
   wss.on('connection',ws=>{
+    totals.connections++;
     ws.id=randomBytes(8).toString('hex');ws.room=null;ws.ready=false;ws.finished=false;ws.lastTime=-1;ws.budget=0;ws.budgetAt=Date.now();ws.alive=true;ws.phase='lobby';
     const greeting=setTimeout(()=>{if(!ws.room)ws.close(1008,'Join timeout');},15000);greeting.unref();
     ws.on('pong',()=>ws.alive=true);
@@ -76,7 +125,7 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000}={}){
           if(ws.room)throw Error('Leave the current room first');if(m.protocol!==core.VERSION&&m.meta?.protocol!==core.VERSION)throw Error('Unsupported game protocol');if(m.meta!=null&&!validMeta(m.meta))throw Error('Invalid level');
           let room;
           if(m.type==='create'){
-            if(rooms.size>=100)throw Error('Relay is full');const code=randomBytes(8).toString('hex').toUpperCase();room={code,hostId:ws.id,meta:m.meta||null,players:new Map(),start:null,check:false};rooms.set(code,room);
+            if(rooms.size>=100)throw Error('Relay is full');const code=randomBytes(8).toString('hex').toUpperCase();room={code,hostId:ws.id,meta:m.meta||null,players:new Map(),start:null,check:false};rooms.set(code,room);totals.roomsCreated++;
           }else{
             room=rooms.get(String(m.code));if(!room)throw Error('Room not found');if(room.start)throw Error('Race in progress');
             if(room.players.size>=8)throw Error('Room is full');
@@ -143,7 +192,7 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000}={}){
         }
         if(m.type==='finish'){
           if(!room.start||ws.finished||typeof m.time!=='number'||!Number.isFinite(m.time)||m.time<0||m.time>Date.now()-room.start+2000)throw Error('Invalid finish');
-          ws.finished=true;broadcast(room,{type:'finish',id:ws.id,name:ws.name,time:m.time});return;
+          ws.finished=true;totals.finishes++;broadcast(room,{type:'finish',id:ws.id,name:ws.name,time:m.time});return;
         }
         throw Error('Unknown message');
       }catch(e){send(ws,{type:'error',message:e.message});}

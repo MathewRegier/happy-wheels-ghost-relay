@@ -37,7 +37,11 @@ Open `https://your-app.up.railway.app` in a browser. You should see:
 
 ```
 Happy Wheels ghost racing relay
+Stats: /stats
 ```
+
+Live rooms and player counts are at `/stats`. Room codes are not shown.
+Optional lock: set `HW_RELAY_STATS_TOKEN` on Railway, then open `/stats?token=YOURTOKEN`.
 
 ## 3. Connect from the game
 
