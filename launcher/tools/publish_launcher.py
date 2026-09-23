@@ -43,7 +43,7 @@ def main() -> None:
         'version': VERSION,
         'file': 'zips/' + name,
         'sha256': digest,
-        'notes': 'Now called JHWML - Mod Launcher.',
+        'notes': 'Asks before installing and updates in the background.',
     }
     (STORE / 'launcher.json').write_text(json.dumps(payload, indent=2) + '\n', encoding='utf-8')
     catalog_path = STORE / 'catalog.json'

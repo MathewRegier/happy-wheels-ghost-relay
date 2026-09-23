@@ -69,9 +69,12 @@ class LauncherUpdateTests(unittest.TestCase):
             newest.write_bytes(b'new')
             script = apply_and_restart(newest, current)
             self.assertTrue(script.is_file())
+            self.assertEqual(script.suffix, '.vbs')
             text = script.read_text(encoding='utf-8')
-            self.assertIn('copy /Y', text)
-            self.assertIn('start ""', text)
+            self.assertIn('Win32_Process', text)
+            self.assertIn('CopyFile', text)
+            self.assertNotIn('cmd.exe', text)
+            self.assertNotIn('start ""', text)
 
 
 if __name__ == '__main__':

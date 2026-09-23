@@ -1,4 +1,4 @@
-"""Download and apply Happy Wheels Mod Launcher self-updates."""
+"""Download and apply JHWML self-updates without extra windows."""
 from __future__ import annotations
 
 import hashlib
@@ -13,6 +13,10 @@ import zipfile
 
 from launcher_version import EXE_NAME, LEGACY_EXE_NAME, NAME, VERSION
 from mod_store import DEFAULT_CATALOG_URL, _read_url, _safe_extract, cache_dir, catalog_base, is_newer
+
+CREATE_NO_WINDOW = 0x08000000
+CREATE_NEW_PROCESS_GROUP = 0x00000200
+DETACHED_PROCESS = 0x00000008
 
 
 def launcher_manifest_url(catalog_url: str | None = None) -> str:
@@ -61,7 +65,7 @@ def extract_launcher_exe(blob: bytes, dest: pathlib.Path) -> pathlib.Path:
             raise ValueError('The launcher update zip did not contain an EXE.')
         by_name = {path.name.lower(): path for path in candidates}
         chosen = by_name.get(EXE_NAME.lower()) or by_name.get(LEGACY_EXE_NAME.lower()) or candidates[0]
-        target = dest / chosen.name
+        target = dest / EXE_NAME
         target.write_bytes(chosen.read_bytes())
         return target
 
@@ -81,24 +85,51 @@ def download_update(info: dict, catalog_url: str | None = None, dest: pathlib.Pa
 
 
 def write_replace_script(current_exe: pathlib.Path, new_exe: pathlib.Path, pid: int | None = None) -> pathlib.Path:
-    script = cache_dir() / 'updates' / 'apply-update.bat'
+    script = cache_dir() / 'updates' / 'apply-update.vbs'
     script.parent.mkdir(parents=True, exist_ok=True)
+    old_bat = script.with_suffix('.bat')
+    if old_bat.exists():
+        old_bat.unlink()
     script.write_text(
-        '@echo off\r\n'
-        'set TARGET=%~1\r\n'
-        'set SOURCE=%~2\r\n'
-        'set PID=%~3\r\n'
-        ':wait\r\n'
-        'timeout /t 1 /nobreak >nul\r\n'
-        'tasklist /FI "PID eq %PID%" | find "%PID%" >nul\r\n'
-        'if not errorlevel 1 goto wait\r\n'
-        'copy /Y "%SOURCE%" "%TARGET%" >nul\r\n'
-        'if errorlevel 1 (\r\n'
-        '  ping -n 3 127.0.0.1 >nul\r\n'
-        '  copy /Y "%SOURCE%" "%TARGET%" >nul\r\n'
-        ')\r\n'
-        'start "" "%TARGET%"\r\n'
-        'del "%~f0"\r\n',
+        'Option Explicit\r\n'
+        'Dim sh, fso, wmi, procs, source, target, oldpath, pid, folder, staged, backup\r\n'
+        'Set sh = CreateObject("WScript.Shell")\r\n'
+        'Set fso = CreateObject("Scripting.FileSystemObject")\r\n'
+        'source = WScript.Arguments(0)\r\n'
+        'target = WScript.Arguments(1)\r\n'
+        'pid = WScript.Arguments(2)\r\n'
+        'oldpath = WScript.Arguments(3)\r\n'
+        'folder = fso.GetParentFolderName(target)\r\n'
+        'staged = target & ".new"\r\n'
+        'backup = target & ".old"\r\n'
+        'Do\r\n'
+        '  WScript.Sleep 800\r\n'
+        '  Set wmi = GetObject("winmgmts:\\\\.\\root\\cimv2")\r\n'
+        '  Set procs = wmi.ExecQuery("Select ProcessId From Win32_Process Where ProcessId=" & pid)\r\n'
+        '  If procs.Count = 0 Then Exit Do\r\n'
+        'Loop\r\n'
+        'WScript.Sleep 1200\r\n'
+        'On Error Resume Next\r\n'
+        'If fso.FileExists(staged) Then fso.DeleteFile staged, True\r\n'
+        'If fso.FileExists(backup) Then fso.DeleteFile backup, True\r\n'
+        'Err.Clear\r\n'
+        'fso.CopyFile source, staged, True\r\n'
+        'If Err.Number <> 0 Then WScript.Quit 1\r\n'
+        'If fso.GetFile(staged).Size <> fso.GetFile(source).Size Then WScript.Quit 2\r\n'
+        'If fso.FileExists(target) Then fso.MoveFile target, backup\r\n'
+        'Err.Clear\r\n'
+        'fso.MoveFile staged, target\r\n'
+        'If Err.Number <> 0 Then\r\n'
+        '  Err.Clear\r\n'
+        '  fso.CopyFile staged, target, True\r\n'
+        'End If\r\n'
+        'If Not fso.FileExists(target) Then WScript.Quit 3\r\n'
+        'If fso.GetFile(target).Size <> fso.GetFile(source).Size Then WScript.Quit 4\r\n'
+        'sh.CurrentDirectory = folder\r\n'
+        'sh.Run """" & target & """", 1, False\r\n'
+        'If StrComp(oldpath, target, 1) <> 0 And fso.FileExists(oldpath) Then fso.DeleteFile oldpath, True\r\n'
+        'If fso.FileExists(backup) Then fso.DeleteFile backup, True\r\n'
+        'If fso.FileExists(WScript.ScriptFullName) Then fso.DeleteFile WScript.ScriptFullName, True\r\n',
         encoding='utf-8',
     )
     return script
@@ -109,16 +140,29 @@ def apply_and_restart(new_exe: pathlib.Path, current_exe: pathlib.Path | None = 
     new_exe = pathlib.Path(new_exe)
     if not new_exe.is_file():
         raise ValueError('The downloaded launcher EXE is missing.')
+    target = current.with_name(EXE_NAME)
     script = write_replace_script(current, new_exe)
     if os.environ.get('HW_LAUNCHER_DRY_RUN'):
         return script
+    windir = pathlib.Path(os.environ.get('WINDIR', r'C:\Windows'))
+    wscript = windir / 'System32' / 'wscript.exe'
+    if not wscript.is_file():
+        wscript = windir / 'wscript.exe'
+    startup = None
     creationflags = 0
     if os.name == 'nt':
-        creationflags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP | 0x08000000
+        startup = subprocess.STARTUPINFO()
+        startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startup.wShowWindow = 0
+        creationflags = CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS
     subprocess.Popen(
-        [str(script), str(current), str(new_exe), str(os.getpid())],
-        cwd=str(script.parent),
-        close_fds=True,
+        [str(wscript), '//B', '//Nologo', str(script), str(new_exe), str(target), str(os.getpid()), str(current)],
+        cwd=str(target.parent),
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        startupinfo=startup,
         creationflags=creationflags,
+        close_fds=True,
     )
-    raise SystemExit(0)
+    os._exit(0)

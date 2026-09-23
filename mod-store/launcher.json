@@ -1,8 +1,8 @@
 {
   "id": "jhwml-mod-launcher",
   "name": "JHWML - Mod Launcher",
-  "version": "0.1.8",
-  "file": "zips/JHWML-Mod-Launcher-0.1.8.zip",
-  "sha256": "8767104189354d508d5469a8bb28cbb05a936abc82b9725b9255d13e239dc0b2",
-  "notes": "Now called JHWML - Mod Launcher."
+  "version": "0.1.9",
+  "file": "zips/JHWML-Mod-Launcher-0.1.9.zip",
+  "sha256": "5f4dc7754c9539feab5c7fa6271f21ed0359a989cf6e87281c771cd3a02c89d8",
+  "notes": "Asks before installing and updates in the background."
 }

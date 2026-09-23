@@ -89,6 +89,8 @@ class Launcher(tk.Tk):
         self.catalog_url = DEFAULT_CATALOG_URL
         self.pages: dict[str, tk.Frame] = {}
         self.step_labels: list[tk.Label] = []
+        self._update_info: dict | None = None
+        self._update_path: pathlib.Path | None = None
         self._build()
         self.after(50, self._detect)
         self.after(80, self._check_launcher_update)
@@ -247,7 +249,7 @@ class Launcher(tk.Tk):
         self._heading(
             page,
             'Update available.',
-            'A newer launcher is ready. It will download, replace this copy, and restart on its own.',
+            'A newer launcher is ready. Install it now? The download stays in this window.',
         )
         card = self._card(page)
         style = ttk.Style()
@@ -257,7 +259,8 @@ class Launcher(tk.Tk):
         self.update_bar.pack(fill='x')
         tk.Label(card, textvariable=self.update_status, fg=MINT, bg=CARD, font=('Georgia', 11), wraplength=560, justify='left').pack(anchor='w', pady=(10, 0))
         actions = self._actions(page)
-        self._update_skip = self._button(actions, 'Continue without updating', lambda: self.show('welcome'))
+        self._update_yes = self._button(actions, 'Yes, install update', self._accept_self_update, primary=True)
+        self._update_no = self._button(actions, 'No, not now', self._decline_self_update)
         return page
 
     def _page_done(self, parent: tk.Widget) -> tk.Frame:
@@ -288,25 +291,51 @@ class Launcher(tk.Tk):
             try:
                 info = check_for_update(VERSION, self.catalog_url)
                 if info:
-                    self.after(0, lambda: self._begin_self_update(info))
+                    self.after(0, lambda: self._offer_self_update(info))
             except Exception:
                 write_log(traceback.format_exc())
 
         threading.Thread(target=run, daemon=True).start()
 
-    def _begin_self_update(self, info: dict) -> None:
-        notes = info.get('notes') or f'v{info["version"]}'
-        self.update_status.set(f'Update available: v{info["version"]}. {notes}\nDownloading…')
-        self.update_bar['value'] = 8
+    def _offer_self_update(self, info: dict) -> None:
+        if self.step in ('install', 'done'):
+            return
+        self._update_info = info
+        notes = info.get('notes') or ''
+        extra = (' ' + notes) if notes else ''
+        self.update_status.set(f'{NAME} v{info["version"]} is available.{extra}\nInstall this update now?')
+        self.update_bar['value'] = 0
+        self._update_yes.configure(state='normal')
+        self._update_no.configure(state='normal')
         self.show('update')
-        if hasattr(self, '_update_skip'):
-            self._update_skip.configure(state='disabled')
+        threading.Thread(target=self._prefetch_update, args=(info,), daemon=True).start()
+
+    def _prefetch_update(self, info: dict) -> None:
+        try:
+            path = download_update(info, self.catalog_url)
+            self._update_path = path
+            self.after(0, lambda: self.update_bar.configure(value=40) if self.step == 'update' else None)
+        except Exception:
+            write_log(traceback.format_exc())
+
+    def _decline_self_update(self) -> None:
+        self.show('welcome')
+
+    def _accept_self_update(self) -> None:
+        info = self._update_info
+        if not info:
+            self.show('welcome')
+            return
+        self._update_yes.configure(state='disabled')
+        self._update_no.configure(state='disabled')
+        self.update_bar['value'] = 20
+        self.update_status.set(f'Downloading v{info["version"]}…')
 
         def run():
             try:
                 if not getattr(sys, 'frozen', False):
-                    raise RuntimeError('This is a source build, so it cannot replace an EXE. Download the new launcher once.')
-                path = download_update(info, self.catalog_url)
+                    raise RuntimeError('This is a source build, so it cannot replace an EXE.')
+                path = self._update_path or download_update(info, self.catalog_url)
                 self.after(0, lambda: self._apply_self_update(path, info))
             except Exception as error:
                 write_log(traceback.format_exc())
@@ -318,18 +347,18 @@ class Launcher(tk.Tk):
         self.update_bar['value'] = 90
         self.update_status.set(f'Installing v{info["version"]} and restarting…')
         try:
+            self.withdraw()
             apply_and_restart(path)
-        except SystemExit:
-            self.destroy()
         except Exception as error:
             write_log(traceback.format_exc())
+            self.deiconify()
             self._self_update_failed(str(error))
 
     def _self_update_failed(self, error: str) -> None:
         self.update_bar['value'] = 0
-        self.update_status.set('Could not update automatically: ' + error + '\nYou can keep using this launcher, or download the newest EXE.')
-        if hasattr(self, '_update_skip'):
-            self._update_skip.configure(state='normal')
+        self.update_status.set('Could not install the update: ' + error + '\nYou can keep using this launcher.')
+        self._update_yes.configure(state='normal')
+        self._update_no.configure(state='normal')
 
     def _detect(self) -> None:
         try:
