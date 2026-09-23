@@ -16,7 +16,7 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000}={}){
   http.on('error',e=>wss.emit('error',e));
   function send(ws,m){if(ws.readyState===WebSocket.OPEN&&ws.bufferedAmount<1024*1024)ws.send(JSON.stringify(m));}
   const broadcast=(room,m,except)=>{for(const p of room.players.values())if(p!==except)send(p,m);};
-  const state=room=>broadcast(room,{type:'room',code:room.code,hostId:room.hostId,meta:room.meta,checking:!!room.check,players:[...room.players.values()].map(p=>({id:p.id,name:p.name,ready:p.ready}))});
+  const state=room=>broadcast(room,{type:'room',code:room.code,hostId:room.hostId,meta:room.meta,checking:!!room.check,players:[...room.players.values()].map(p=>({id:p.id,name:p.name,ready:p.ready,loaded:!room.meta||core.compatible(room.meta,p.meta)}))});
   function resetReady(room){room.check=false;room.start=null;for(const p of room.players.values()){p.ready=false;p.finished=false;p.lastTime=-1;}}
   function cancel(room,message){resetReady(room);broadcast(room,{type:'cancel',message});state(room);}
   function allReady(room){return room.players.size>=2&&[...room.players.values()].every(p=>p.ready&&core.compatible(room.meta,p.meta));}
