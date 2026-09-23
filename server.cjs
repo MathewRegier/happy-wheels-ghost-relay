@@ -46,7 +46,8 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000}={}){
     if(!room.players.size){rooms.delete(room.code);return;}
     if(room.hostId===ws.id)room.hostId=room.players.keys().next().value;
     broadcast(room,{type:'left',id:ws.id,name,racing});
-    cancel(room,racing?name+' left. The race is over.':name+' left. Ready up again when everyone is here.');
+    state(room);
+    if(room.check&&allReady(room))beginRace(room);
   }
   function validMeta(m){return m&&m.protocol===core.VERSION&&typeof m.level==='string'&&/^[1-9][0-9]{0,8}$/.test(m.level)&&typeof m.hash==='string'&&/^[a-f0-9]{64}$/.test(m.hash);}
   wss.on('connection',ws=>{
