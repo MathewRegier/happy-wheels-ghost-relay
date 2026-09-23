@@ -16,10 +16,27 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000}={}){
   http.on('error',e=>wss.emit('error',e));
   function send(ws,m){if(ws.readyState===WebSocket.OPEN&&ws.bufferedAmount<1024*1024)ws.send(JSON.stringify(m));}
   const broadcast=(room,m,except)=>{for(const p of room.players.values())if(p!==except)send(p,m);};
-  const state=room=>broadcast(room,{type:'room',code:room.code,hostId:room.hostId,meta:room.meta,checking:!!room.check,players:[...room.players.values()].map(p=>({id:p.id,name:p.name,ready:p.ready,loaded:!room.meta||core.compatible(room.meta,p.meta)}))});
+  function playerPhase(room,p){
+    if(p.phase==='ingame'||p.phase==='selecting'||p.phase==='loading'||p.phase==='lobby')return p.phase;
+    if(!room.meta)return 'lobby';
+    return core.compatible(room.meta,p.meta)?'ingame':'loading';
+  }
+  function playerInGame(room,p){
+    const phase=playerPhase(room,p);
+    if(phase==='ingame')return true;
+    if(phase==='selecting'||phase==='loading'||phase==='lobby')return false;
+    return core.compatible(room.meta,p.meta);
+  }
+  function allInGame(room){return !!room.meta&&[...room.players.values()].every(p=>playerInGame(room,p));}
+  const state=room=>broadcast(room,{type:'room',code:room.code,hostId:room.hostId,meta:room.meta,checking:!!room.check,players:[...room.players.values()].map(p=>{const phase=playerPhase(room,p);return {id:p.id,name:p.name,ready:p.ready,phase,loaded:phase==='ingame'};})});
   function resetReady(room){room.check=false;room.start=null;for(const p of room.players.values()){p.ready=false;p.finished=false;p.lastTime=-1;}}
   function cancel(room,message){resetReady(room);broadcast(room,{type:'cancel',message});state(room);}
   function allReady(room){return room.players.size>=2&&[...room.players.values()].every(p=>p.ready&&core.compatible(room.meta,p.meta));}
+  function setPhase(ws,phase){
+    if(!['lobby','loading','selecting','ingame'].includes(phase))return false;
+    if(ws.phase===phase)return false;
+    ws.phase=phase;return true;
+  }
   function beginRace(room){room.check=false;room.start=Date.now()+countdown;for(const p of room.players.values()){p.lastTime=-1;p.finished=false;}broadcast(room,{type:'start',at:room.start});}
   function leave(ws){
     const room=ws.room;if(!room)return;
@@ -33,7 +50,7 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000}={}){
   }
   function validMeta(m){return m&&m.protocol===core.VERSION&&typeof m.level==='string'&&/^[1-9][0-9]{0,8}$/.test(m.level)&&typeof m.hash==='string'&&/^[a-f0-9]{64}$/.test(m.hash);}
   wss.on('connection',ws=>{
-    ws.id=randomBytes(8).toString('hex');ws.room=null;ws.ready=false;ws.finished=false;ws.lastTime=-1;ws.budget=0;ws.budgetAt=Date.now();ws.alive=true;
+    ws.id=randomBytes(8).toString('hex');ws.room=null;ws.ready=false;ws.finished=false;ws.lastTime=-1;ws.budget=0;ws.budgetAt=Date.now();ws.alive=true;ws.phase='lobby';
     const greeting=setTimeout(()=>{if(!ws.room)ws.close(1008,'Join timeout');},15000);greeting.unref();
     ws.on('pong',()=>ws.alive=true);
     ws.on('error',()=>{});
@@ -43,7 +60,17 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000}={}){
         ws.alive=true;
         const now=Date.now();if(now-ws.budgetAt>1000){ws.budget=0;ws.budgetAt=now;}if(++ws.budget>120){ws.close(1008,'Rate limit');return;}
         const m=JSON.parse(raw);if(!m||typeof m!=='object')throw Error('Invalid message');
-        if(m.type==='ping'){if(typeof m.clientTime==='number'&&Number.isFinite(m.clientTime))send(ws,{type:'pong',clientTime:m.clientTime,serverTime:Date.now()});return;}
+        if(m.type==='ping'){
+          if(typeof m.clientTime==='number'&&Number.isFinite(m.clientTime))send(ws,{type:'pong',clientTime:m.clientTime,serverTime:Date.now()});
+          if(ws.room&&setPhase(ws,m.phase))state(ws.room);
+          return;
+        }
+        if(m.type==='status'){
+          if(!ws.room)throw Error('Join a room first');
+          if(!setPhase(ws,m.phase))return;
+          state(ws.room);
+          return;
+        }
         if(m.type==='create'||m.type==='join'){
           if(ws.room)throw Error('Leave the current room first');if(m.protocol!==core.VERSION&&m.meta?.protocol!==core.VERSION)throw Error('Unsupported game protocol');if(m.meta!=null&&!validMeta(m.meta))throw Error('Invalid level');
           let room;
@@ -53,24 +80,28 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000}={}){
             room=rooms.get(String(m.code));if(!room)throw Error('Room not found');if(room.start)throw Error('Race in progress');
             if(room.players.size>=8)throw Error('Room is full');
           }
-          clearTimeout(greeting);ws.name=typeof m.name==='string'?m.name.slice(0,24):'Racer';ws.meta=m.meta;ws.room=room;room.players.set(ws.id,ws);send(ws,{type:'identity',id:ws.id});state(room);if(room.meta&&!core.compatible(room.meta,m.meta))send(ws,{type:'travel',meta:room.meta});return;
+          clearTimeout(greeting);ws.name=typeof m.name==='string'?m.name.slice(0,24):'Racer';ws.meta=m.meta;ws.room=room;ws.phase=room.meta&&core.compatible(room.meta,m.meta)?'ingame':room.meta?'loading':'lobby';room.players.set(ws.id,ws);send(ws,{type:'identity',id:ws.id});state(room);if(room.meta&&!core.compatible(room.meta,m.meta))send(ws,{type:'travel',meta:room.meta});return;
         }
         const room=ws.room;if(!room)throw Error('Join a room first');
         if(m.type==='summon'){
           if(ws.id!==room.hostId)throw Error('Only the host can bring everyone to a level');
           if(!validMeta(m.meta))throw Error('Load a published level first');
-          room.meta=m.meta;ws.meta=m.meta;cancel(room,'Host selected a level. Waiting for everyone to load.');
+          room.meta=m.meta;ws.meta=m.meta;ws.phase='ingame';
+          for(const p of room.players.values())if(p!==ws)p.phase='loading';
+          cancel(room,'Host selected a level. Waiting for everyone to load.');
           broadcast(room,{type:'travel',meta:room.meta},ws);return;
         }
         if(m.type==='level'){
           if(!validMeta(m.meta))throw Error('Invalid level');
-          if(room.start&&core.compatible(room.meta,m.meta)){ws.meta=m.meta;state(room);return;}
-          ws.meta=m.meta;ws.ready=false;
+          if(room.start&&core.compatible(room.meta,m.meta)){ws.meta=m.meta;ws.phase='ingame';state(room);return;}
+          ws.meta=m.meta;ws.ready=false;if(core.compatible(room.meta,m.meta))ws.phase='ingame';
           if(!room.meta||(ws.id===room.hostId&&!core.compatible(room.meta,m.meta))){
             const moved=!core.compatible(room.meta,m.meta);
             room.meta=m.meta;
             if(moved){
               resetReady(room);
+              ws.phase='ingame';
+              for(const p of room.players.values())if(p!==ws)p.phase='loading';
               state(room);
               broadcast(room,{type:'travel',meta:room.meta},ws);
             }else state(room);
@@ -84,7 +115,8 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000}={}){
           if(!validMeta(m.meta)||!core.compatible(room.meta,m.meta))throw Error('Level does not match this room');
           if(ws.id===room.hostId){
             if(room.players.size<2)throw Error('Need another racer before starting');
-            resetReady(room);room.check=true;ws.ready=true;ws.meta=m.meta;state(room);
+            if(!allInGame(room))throw Error('Wait for everyone to select a character');
+            resetReady(room);room.check=true;ws.ready=true;ws.meta=m.meta;ws.phase='ingame';state(room);
             broadcast(room,{type:'readyCheck',name:ws.name,meta:room.meta});
             return;
           }
