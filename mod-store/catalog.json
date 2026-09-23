@@ -1,0 +1,15 @@
+{
+  "updated": "2026-09-23",
+  "host": "github",
+  "mods": [
+    {
+      "id": "jimbobs-multiplayer",
+      "name": "Jimbob's Multiplayer Mod",
+      "version": "0.1.1",
+      "author": "Jimbob",
+      "description": "Race friends as translucent ghosts. Shared countdown, respawn-safe ghosts, a live scoreboard, and a hosted online relay.",
+      "file": "zips/jimbobs-multiplayer-0.1.1.zip",
+      "sha256": "f866fca609359182ee3188e7dd207de3e6ac295e88d3c1b219880ca74e0ecf51"
+    }
+  ]
+}
