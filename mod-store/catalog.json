@@ -14,11 +14,11 @@
     {
       "id": "jimbobs-multiplayer",
       "name": "Jimbob's Multiplayer Mod",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "author": "Jimbob \u00b7 Discord jimbob1111",
       "description": "Race friends on the same level. Ghost Multiplayer shows other players as ghosts. Shared Physics is one shared world where you can bump. Live scoreboard, rooms for 2 to 16 players, and a hosted relay. Custom character skins show when both players have the same pack. Created by Jimbob \u2014 Discord jimbob1111.",
-      "file": "zips/jimbobs-multiplayer-0.4.0.zip",
-      "sha256": "a80b828077c0894bb6efa874a40c2962fd341ca4efb4727bd72bd6f8e042fa26"
+      "file": "zips/jimbobs-multiplayer-0.4.1.zip",
+      "sha256": "53a7f9dbc41ca346bc0dcb26fe4b984d71388feb5b7958acb932e3c039492882"
     }
   ],
   "launcher": {

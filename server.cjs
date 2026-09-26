@@ -171,7 +171,7 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000}={}){
           const key=m.type==='authorityInput'?'authorityInputSeq':'authorityRequestSeq';
           if(ws.controlEpoch!==room.start){ws.controlEpoch=room.start;ws.authorityInputSeq=-1;ws.authorityRequestSeq=-1;}
           if(m.seq<=ws[key])return;ws[key]=m.seq;
-          send(room.players.get(room.hostId),m.type==='authorityInput'?{type:m.type,id:ws.id,epoch:room.start,seq:m.seq,keys:m.keys,applied:m.applied&&typeof m.applied==='object'?m.applied:undefined}:{type:m.type,id:ws.id,epoch:room.start,seq:m.seq,character:m.character,skin:typeof m.skin==='string'?m.skin:''});return;
+          send(room.players.get(room.hostId),m.type==='authorityInput'?{type:m.type,id:ws.id,epoch:room.start,seq:m.seq,keys:m.keys,applied:m.applied&&typeof m.applied==='object'?m.applied:undefined,recover:Array.isArray(m.recover)?m.recover.slice(0,16):undefined}:{type:m.type,id:ws.id,epoch:room.start,seq:m.seq,character:m.character,skin:typeof m.skin==='string'?m.skin:''});return;
         }
         if(m.type==='sharedState'){
           if(ws.id!==room.hostId)throw Error('Only the host can send the shared world');
