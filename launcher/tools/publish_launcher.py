@@ -10,7 +10,7 @@ import zipfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
-from launcher_version import EXE_NAME, LEGACY_EXE_NAME, NAME, VERSION  # noqa: E402
+from launcher_version import EXE_NAME, NAME, VERSION  # noqa: E402
 
 STORE = ROOT / 'mod-store'
 RELAY_STORE = ROOT / 'relay' / 'mod-store'
@@ -35,7 +35,6 @@ def main() -> None:
         dest.unlink()
     with zipfile.ZipFile(dest, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
         archive.write(exe, EXE_NAME)
-        archive.write(exe, LEGACY_EXE_NAME)
     digest = sha256_file(dest)
     payload = {
         'id': 'jhwml-mod-launcher',
