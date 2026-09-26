@@ -43,7 +43,7 @@ def main() -> None:
         'version': VERSION,
         'file': 'zips/' + name,
         'sha256': digest,
-        'notes': 'Test update for the Yes/No installer.',
+        'notes': 'Supports the Happy Wheels 1.99.2 Steam update.',
     }
     (STORE / 'launcher.json').write_text(json.dumps(payload, indent=2) + '\n', encoding='utf-8')
     catalog_path = STORE / 'catalog.json'

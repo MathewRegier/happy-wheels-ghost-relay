@@ -22,8 +22,8 @@
     }
   ],
   "launcher": {
-    "version": "0.2.0",
-    "file": "zips/JHWML-Mod-Launcher-0.2.0.zip",
-    "sha256": "7631c503f7593a9978b4cf3f53065a486af2074bbb88f29f9a5d0bbe37931f2d"
+    "version": "0.2.1",
+    "file": "zips/JHWML-Mod-Launcher-0.2.1.zip",
+    "sha256": "15204d03ad8d96191abf7e0ea0adf69822e41a0a371297542140a6ff92bbbc4a"
   }
 }

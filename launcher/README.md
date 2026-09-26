@@ -1,6 +1,6 @@
 # Happy Wheels Mod Launcher
 
-Source for the Windows installer that makes Steam Happy Wheels 1.99.1 moddable.
+Source for the Windows installer that makes Steam Happy Wheels 1.99.2 moddable.
 
 Created by Jimbob · Discord **jimbob1111**
 
@@ -12,7 +12,7 @@ Nexus Mods quarantines unsigned EXEs. Reviewers can build the same binary from t
 
 - Windows (to build or run the EXE)
 - [Python 3](https://www.python.org/downloads/) with **Add python.exe to PATH**
-- A legal Steam copy of Happy Wheels 1.99.1
+- A legal Steam copy of Happy Wheels 1.99.2
 - Close Happy Wheels before installing
 
 ## Run from source (no EXE)

@@ -14,6 +14,8 @@ import time
 
 from launcher_version import VERSION
 
+GAME_VERSION = '1.99.2'
+
 
 def project_root() -> pathlib.Path:
     if getattr(sys, 'frozen', False):
@@ -287,7 +289,7 @@ def install(source: pathlib.Path, dest: pathlib.Path | None = None, enabled_ids:
         except (OSError, KeyError) as error:
             raise ValueError('Missing original game file: ' + name) from error
         if actual != expected:
-            raise ValueError('Unsupported Happy Wheels build: ' + name + '. This pack supports Happy Wheels 1.99.1. If Steam just updated, open this launcher again so it can update itself, then press Install.')
+            raise ValueError('Unsupported Happy Wheels build: ' + name + '. This pack supports Happy Wheels ' + GAME_VERSION + '. If Steam just updated, open this launcher again so it can update itself, then press Install.')
 
     probe = game / '.hw-mod-write-test'
     try:
@@ -412,7 +414,7 @@ def install(source: pathlib.Path, dest: pathlib.Path | None = None, enabled_ids:
     if app.exists():
         shutil.rmtree(app)
     (game / 'install.json').write_text(json.dumps({
-        'gameVersion': '1.99.1',
+        'gameVersion': GAME_VERSION,
         'launcherVersion': VERSION,
         'source': str(game),
         'inPlace': True,
