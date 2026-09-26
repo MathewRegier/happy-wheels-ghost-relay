@@ -229,6 +229,16 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000}={}){
           else if(!signal.candidate||typeof signal.candidate.candidate!=='string')throw Error('Invalid shared candidate');
           send(target,{type:m.type,id:ws.id,epoch:room.start,signal});return;
         }
+        if(m.type==='restart'){
+          if(ws.id!==room.hostId)throw Error('Only the host can reset the world');
+          if(room.mode!=='shared')throw Error('Reset world is only for Shared Physics');
+          if(!room.meta)throw Error('Load a level first');
+          if(room.players.size<2)throw Error('Need another racer before starting');
+          if(m.meta&&validMeta(m.meta)&&core.compatible(room.meta,m.meta))room.meta=m.meta;
+          for(const p of room.players.values()){p.ready=true;p.finished=false;p.lastTime=-1;if(p===ws||core.compatible(room.meta,p.meta))p.phase='ingame';}
+          beginRace(room);
+          return;
+        }
         if(m.type==='summon'){
           if(ws.id!==room.hostId)throw Error('Only the host can bring everyone to a level');
           if(!validMeta(m.meta))throw Error('Load a published level first');
