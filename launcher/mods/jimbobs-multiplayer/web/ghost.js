@@ -69,10 +69,11 @@
   }
   function chunkQueue(){
     for(const key of Object.keys(window)){
-      if(/^Tmu[A-Za-z0-9]+0$/.test(key)&&Array.isArray(window[key]))return window[key];
+      if(!/^Tmu[A-Za-z0-9]+$/.test(key))continue;
+      const chunks=window[key];
+      if(Array.isArray(chunks)&&chunks.push!==Array.prototype.push)return chunks;
     }
-    window.Tmuddaafe0=window.Tmuddaafe0||[];
-    return window.Tmuddaafe0;
+    return null;
   }
   function attachState(require){
     lab.require=require;
@@ -93,7 +94,7 @@
   }
   const poll = setInterval(() => {
     const chunks=chunkQueue();
-    if (chunks.push === Array.prototype.push) return;
+    if(!chunks)return;
     clearInterval(poll);
     chunks.push([['ghost-lab'], {}, require => attachState(require)]);
   }, 250);
