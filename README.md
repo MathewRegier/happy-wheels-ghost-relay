@@ -40,7 +40,7 @@ Happy Wheels ghost racing relay
 Stats: /stats
 ```
 
-Live rooms and player counts are at `/stats`. Room codes are not shown.
+Live rooms are at `/stats`. Each room shows its code, Ghost Multiplayer or Shared Physics, and how many players are in it out of the limit the host set, such as 3/12.
 Optional lock: set `HW_RELAY_STATS_TOKEN` on Railway, then open `/stats?token=YOURTOKEN`.
 
 ## 3. Connect from the game
