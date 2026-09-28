@@ -143,9 +143,31 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000}={}){
             room=rooms.get(String(m.code));if(!room)throw Error('Room not found');if(room.start)throw Error('Race in progress');
             if(room.players.size>=(room.capacity||8))throw Error('Room is full');
           }
-          clearTimeout(greeting);ws.name=typeof m.name==='string'?m.name.slice(0,24):'Racer';ws.meta=m.meta;setCharacter(ws,m.meta?.character);ws.room=room;ws.phase=room.meta&&core.compatible(room.meta,m.meta)?'ingame':room.meta?'loading':'lobby';room.players.set(ws.id,ws);send(ws,{type:'identity',id:ws.id});state(room);if(room.meta&&!core.compatible(room.meta,m.meta))send(ws,{type:'travel',meta:room.meta});return;
+          clearTimeout(greeting);ws.name=typeof m.name==='string'?m.name.slice(0,24):'Racer';ws.meta=m.meta;setCharacter(ws,m.meta?.character);ws.room=room;ws.phase=room.meta&&core.compatible(room.meta,m.meta)?'ingame':room.meta?'loading':'lobby';room.players.set(ws.id,ws);send(ws,{type:'identity',id:ws.id});state(room);for(const p of room.players.values()){if(p!==ws&&p.avatar)send(ws,{type:'profile',id:p.id,name:p.name,avatar:p.avatar});}if(room.meta&&!core.compatible(room.meta,m.meta))send(ws,{type:'travel',meta:room.meta});return;
         }
         const room=ws.room;if(!room)throw Error('Join a room first');
+        if(m.type==='chat'){
+          const text=String(m.text||'').replace(/\s+/g,' ').trim().slice(0,200);
+          if(!text)return;
+          const payload={type:'chat',id:ws.id,name:ws.name,text};
+          for(const p of room.players.values())send(p,payload);
+          return;
+        }
+        if(m.type==='profile'){
+          let renamed=false;
+          if(typeof m.name==='string'){
+            const name=m.name.trim().slice(0,24);
+            if(name&&name!==ws.name){ws.name=name;renamed=true;}
+          }
+          const avatar=typeof m.avatar==='string'?m.avatar.replace(/\s+/g,'').slice(0,120000):'';
+          if(avatar){
+            if(!/^data:image\/(png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=]+$/.test(avatar))throw Error('Invalid profile');
+            ws.avatar=avatar;
+          }
+          if(renamed)state(room);
+          if(ws.avatar)broadcast(room,{type:'profile',id:ws.id,name:ws.name,avatar:ws.avatar},ws);
+          return;
+        }
         if(m.type==='mode'){
           if(ws.id!==room.hostId)throw Error('Only the host can change the mode');
           if(!['ghost','shared'].includes(m.mode))throw Error('Invalid multiplayer mode');

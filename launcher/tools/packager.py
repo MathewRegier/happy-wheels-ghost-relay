@@ -17,6 +17,35 @@ from launcher_version import VERSION
 GAME_VERSION = '1.99.2'
 
 
+def strip_inlined_hw_ghost_net(text: str) -> str:
+    marker = "exposeInMainWorld('hwGhostNet'"
+    alt = 'exposeInMainWorld("hwGhostNet"'
+    while marker in text or alt in text:
+        idx = text.find(marker)
+        if idx < 0:
+            idx = text.find(alt)
+        start = text.rfind('(() =>', 0, idx)
+        if start < 0:
+            start = text.rfind('(()=>', 0, idx)
+        if start < 0:
+            start = idx
+        end = text.find('})();', idx)
+        if end < 0:
+            break
+        text = text[:start] + text[end + 5:]
+    return text
+
+
+def patch_game_preload(preload: pathlib.Path, hook: str) -> None:
+    current = strip_inlined_hw_ghost_net(preload.read_text(encoding='utf-8'))
+    hook = hook.strip() + '\n'
+    if 'mod-runtime' not in current:
+        current = current.rstrip() + '\n' + hook
+    if not current.endswith('\n'):
+        current += '\n'
+    preload.write_text(current, encoding='utf-8')
+
+
 def project_root() -> pathlib.Path:
     if getattr(sys, 'frozen', False):
         return pathlib.Path(sys._MEIPASS)
@@ -388,9 +417,7 @@ def install(source: pathlib.Path, dest: pathlib.Path | None = None, enabled_ids:
     entry.write_text(main, encoding='utf-8')
     preload = entry.with_name('preload.js')
     hook = (core_dir / 'mod-loader-preload.cjs').read_text(encoding='utf-8')
-    current = preload.read_text(encoding='utf-8')
-    if 'mod-runtime' not in current:
-        preload.write_text(current + '\n' + hook + '\n', encoding='utf-8')
+    patch_game_preload(preload, hook)
 
     note(88, 'Updating the Steam game files…')
     files = {p.relative_to(app).as_posix(): p.read_bytes() for p in app.rglob('*') if p.is_file()}

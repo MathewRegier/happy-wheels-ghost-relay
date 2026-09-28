@@ -2,7 +2,7 @@
 
 Backend-only WebSocket server for ghost racing. No game files. Push **this folder** to GitHub as the repo root, then deploy that repo on Railway.
 
-Launcher source (run from Python or build the EXE) lives in [`launcher/`](launcher/README.md). That folder is for Nexus / GameBanana review. It is not used by Railway.
+The public launcher, SDK, and developer docs live in **[jhwml](https://github.com/MathewRegier/jhwml)** ([docs](https://mathewregier.github.io/jhwml/)). The [`launcher/`](launcher/README.md) folder in this relay repo is only a Nexus / GameBanana review slice. It is not used by Railway.
 
 Friends connect with `wss://your-app.up.railway.app` in the game Multiplayer **Server settings**.
 

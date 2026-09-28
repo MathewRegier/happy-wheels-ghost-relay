@@ -1,6 +1,8 @@
 # Happy Wheels Mod Launcher
 
-Source for the Windows installer that makes Steam Happy Wheels 1.99.2 moddable.
+Review slice of the Windows installer that makes Steam Happy Wheels 1.99.2 moddable.
+
+The canonical launcher, `window.HWMod` SDK, and docs are **[github.com/MathewRegier/jhwml](https://github.com/MathewRegier/jhwml)** ([docs](https://mathewregier.github.io/jhwml/)).
 
 Created by Jimbob · Discord **jimbob1111**
 
