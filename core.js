@@ -2,8 +2,25 @@
   'use strict';
   const VERSION = 'hw199-ghost-1';
   const finite = (x, limit=1e8) => typeof x === 'number' && Number.isFinite(x) && Math.abs(x)<=limit;
+  const HEAD_DISPLAY=['head1MC','headMC','headSprite'];
+  const HEAD_BODY=['head1Body','headBody'];
+  const TORSO_DISPLAY=['chestMC','torsoMC','upperTorsoMC','pelvisMC'];
+  const TORSO_BODY=['chestBody','torsoBody','upperTorso','pelvisBody'];
+  function ownField(obj, keys){
+    if(!obj||typeof obj!=='object')return null;
+    for(const key of keys)if(obj[key])return obj[key];
+    return null;
+  }
+  // Primary rider only. Nested passengers, elves, and vehicles are ignored.
+  function anchorTargets(character, rank){
+    const torso=rank==='torso';
+    return {rank:torso?'torso':'head', display:ownField(character, torso?TORSO_DISPLAY:HEAD_DISPLAY), body:ownField(character, torso?TORSO_BODY:HEAD_BODY)};
+  }
+  function validHead(head){
+    return head==null || (!!head && typeof head==='object' && finite(head.x) && finite(head.y));
+  }
   function validFrame(f) {
-    return !!f && finite(f.t, 86400000) && f.t>=0 && Array.isArray(f.parts) && f.parts.length<=1200 &&
+    return !!f && finite(f.t, 86400000) && f.t>=0 && Array.isArray(f.parts) && f.parts.length<=1200 && validHead(f.head) &&
       f.parts.every(p=>Array.isArray(p)&&p.length===12&&p.every(x=>finite(x))&&Number.isInteger(p[0])&&p[0]>=0&&p[0]<100000&&Number.isInteger(p[1])&&p[1]>=0&&p[1]<4096&&p[8]>=0&&p[8]<=1&&Number.isInteger(p[9])&&p[9]>=0&&p[9]<=0xffffff);
   }
   function allowedTextureUrl(url) {
@@ -38,13 +55,17 @@
       if(Number.isFinite(av)&&Number.isFinite(bv))return av+(bv-av)*u;
       return Number.isFinite(bv)?bv:Number.isFinite(av)?av:fallback;
     };
-    return {...a,t,progress:mix('progress'),current:mix('current'),best:mix('best'),parts:a.parts.map(p=>{
+    const ok=h=>h&&finite(h.x)&&finite(h.y);
+    const head=ok(a.head)&&ok(b.head)?{x:a.head.x+(b.head.x-a.head.x)*u,y:a.head.y+(b.head.y-a.head.y)*u}:ok(b.head)?{x:b.head.x,y:b.head.y}:ok(a.head)?{x:a.head.x,y:a.head.y}:undefined;
+    const frame={...a,t,progress:mix('progress'),current:mix('current'),best:mix('best'),parts:a.parts.map(p=>{
       const q=other.get(p[0]); if(!q||q[1]!==p[1])return p;
       const out=p.slice();
       // Interpolate affine transforms; appearance changes occur at their sample boundary.
       for(let i=2;i<=8;i++)out[i]=p[i]+(q[i]-p[i])*u;
       return out;
     })};
+    if(head)frame.head=head;else delete frame.head;
+    return frame;
   }
   function sample(frames,t) {
     if(!frames.length)return null;
@@ -64,7 +85,7 @@
     for(const f of r.frames){if(!validFrame(f)||f.t<last||f.parts.some(p=>p[1]>=r.textures.length))throw Error('Invalid ghost frame');last=f.t;}
     return r;
   }
-  const api={VERSION,validFrame,validTexture,publicTexturePath,compatible,interpolate,sample,liveSample,validateRecording};
+  const api={VERSION,validFrame,validTexture,publicTexturePath,compatible,interpolate,sample,liveSample,validateRecording,anchorTargets};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   else root.HWGhostCore=api;
 })(globalThis);
