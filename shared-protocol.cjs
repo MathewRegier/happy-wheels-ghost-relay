@@ -7,6 +7,8 @@ const integer=(v,max=Number.MAX_SAFE_INTEGER)=>Number.isSafeInteger(v)&&v>=0&&v<
 const pose=p=>Array.isArray(p)&&p.length===6&&p.every(n=>typeof n==='number'&&Number.isFinite(n)&&Math.abs(n)<1e8);
 function validateInput(m){
  if(!integer(m.seq)||!integer(m.keys,255))return false;
+ if(m.life!=null&&!integer(m.life))return false;
+ if(m.enabled!=null&&typeof m.enabled!=='boolean')return false;
  if(m.recover!=null&&(!Array.isArray(m.recover)||m.recover.length>16||!m.recover.every(item=>item&&typeof item.id==='string'&&item.id.length<80&&integer(item.life))))return false;
  if(m.applied==null)return true;
  if(typeof m.applied!=='object'||Array.isArray(m.applied))return false;
@@ -36,6 +38,7 @@ function validEffect(e){
  return typeof e.method==='string'&&/^[A-Za-z]{1,40}$/.test(e.method)&&Array.isArray(e.args)&&e.args.length<=12&&e.args.every(effectArg);
 }
 function validateState(m,ids){
+ if(m.time!=null&&(!Number.isFinite(m.time)||m.time<0))return false;
  if(m.effects!=null&&(!Array.isArray(m.effects)||m.effects.length>128||!m.effects.every(validEffect)))return false;
  if(!integer(m.revision)||!integer(m.tick)||typeof m.signature!=='string'||m.signature.length>100000||!Array.isArray(m.players)||m.players.length>16||!Array.isArray(m.world)||m.world.length>6000)return false;
  if(m.removed!=null&&(!Array.isArray(m.removed)||m.removed.length>6000||!m.removed.every(id=>integer(id,1000000))))return false;
@@ -47,6 +50,8 @@ function validateState(m,ids){
   if(!p||!ids.has(p.id)||players.has(p.id)||!integer(p.character,11)||p.character<1||!integer(p.life)||!integer(p.request)||!integer(p.protectedUntil)||typeof p.dead!=='boolean'||!p.parts||Array.isArray(p.parts)||typeof p.parts!=='object')return false;
   if(p.origin!=null&&(!Array.isArray(p.origin)||p.origin.length!==2||!p.origin.every(n=>Number.isFinite(n)&&Math.abs(n)<1e8)))return false;
   if(p.skin!=null&&!skinId(p.skin))return false;
+  if(p.facing!=null&&!['left','right'].includes(p.facing))return false;
+  if(p.inputSeq!=null&&!integer(p.inputSeq))return false;
   if(p.finished!=null&&typeof p.finished!=='boolean')return false;
   if(p.finishTime!=null&&!integer(p.finishTime))return false;
   if(p.resetEvents!=null&&typeof p.resetEvents!=='boolean')return false;
