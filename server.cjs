@@ -1,12 +1,43 @@
 const authority=require('./shared-protocol.cjs');
 'use strict';
 const {createServer}=require('node:http');
-const {randomBytes}=require('node:crypto');
+const {randomBytes,scrypt,timingSafeEqual}=require('node:crypto');
 const {WebSocketServer,WebSocket}=require('ws');
 const core=require('./core.js');
 
 function createRelay({host='127.0.0.1',port=19799,countdown=3000,restartVoteMs=30000}={}){
   const rooms=new Map();
+  let hashing=0,hashWindow=Date.now(),hashCount=0;
+  const cleanLabel=(value,max=48)=>String(value||'').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().slice(0,max);
+  async function passwordKey(value,salt){
+    const now=Date.now();if(now-hashWindow>=1000){hashWindow=now;hashCount=0;}
+    if(hashing>=4||hashCount>=8)throw Error('Password checks are busy. Please try again in a moment.');
+    hashing++;hashCount++;
+    try{return await new Promise((resolve,reject)=>scrypt(value,salt,32,(error,key)=>error?reject(error):resolve(key)));}finally{hashing--;}
+  }
+  async function passwordRecord(value){
+    if(value==null||value==='')return null;
+    if(typeof value!=='string'||value.length>64)throw Error('Passwords must be 1 to 64 characters.');
+    const salt=randomBytes(16);return {salt,key:await passwordKey(value,salt)};
+  }
+  function limitedAccess(ws){
+    const now=Date.now();
+    // Per-socket attempts plus a relay-wide hashing budget. A reverse proxy must
+    // not make every legitimate player share a single IP-address cooldown.
+    const row=ws.accessBudget&&now-ws.accessBudget.at<60000?ws.accessBudget:{at:now,count:0};
+    if(++row.count>20)throw Error('Too many room attempts. Try again in a minute.');
+    ws.accessBudget=row;
+  }
+  function directory(){
+    return {type:'directory',protocol:'lobby-directory-v1',now:Date.now(),rooms:[...rooms.values()].filter(r=>r.visibility==='public').map(r=>{
+      const phase=roomPhase(r),count=r.players.size,full=count>=r.capacity;
+      const busy=!!(r.start||r.check||(r.launchId&&!r.results));
+      return {code:r.code,name:r.name||"Happy Wheels room",host:cleanLabel(r.players.get(r.hostId)?.name,24)||'Racer',mode:r.mode,
+        players:count,capacity:r.capacity,passwordProtected:!!r.password,createdAt:r.createdAt,
+        level:r.meta?{id:String(r.meta.level),title:cleanLabel(r.meta.title,80)||('Level '+r.meta.level)}:null,
+        phase,joinable:!r.locked&&!full&&!busy,status:r.locked?'Locked':full?'Full':busy?(phase==='racing'?'Playing':'Starting'):'Open'};
+    }).sort((a,b)=>Number(b.joinable)-Number(a.joinable)||a.createdAt-b.createdAt)};
+  }
   const startedAt=Date.now();
   const totals={connections:0,roomsCreated:0,racesStarted:0,finishes:0};
   function snapshot(){
@@ -16,6 +47,8 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000,restartVoteMs=3
       players+=room.players.size;
       if(room.start)racing++;
       if(room.check)checking++;
+      // Private room codes and participants must not leak through the public stats page.
+      if(room.visibility!=='public'&&!process.env.HW_RELAY_STATS_TOKEN)continue;
       roomList.push({
         code:room.code,
         mode:room.mode==='shared'?'shared':'ghost',
@@ -97,7 +130,7 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000,restartVoteMs=3
     const confirmed=Number.isInteger(p.confirmed)?p.confirmed:null;
     return {id:p.id,name:p.name,ready:p.ready,phase,loaded:room.launchId?!!p.prepared:phase==='ingame',character:confirmed,confirmed,skin:p.skin||'',prepared:!!p.prepared,finished:!!p.finished,time:p.finished?p.finishTime:null};
   }
-  const state=room=>broadcast(room,{type:'room',code:room.code,hostId:room.hostId,mode:room.mode||'ghost',capacity:room.capacity||8,collide:room.collide!==false,locked:!!room.locked,launched:!!room.launched,gate:!!room.gate,launchId:room.launchId||0,lobbyRev:room.lobbyRev||0,phase:roomPhase(room),start:room.start||null,rules:room.rules||null,countdownMs:room.countdownMs||countdown,results:room.results||null,restartVote:voteState(room),capabilities:['shared-physics-v1','shared-pose-v1',authority.PROTOCOL,'restart-vote-v1','race-transitions-v1'],meta:room.meta,pick:room.pick||null,checking:!!room.check,players:[...room.players.values()].map(p=>rosterEntry(room,p))});
+  const state=room=>broadcast(room,{type:'room',code:room.code,name:room.name||'Happy Wheels room',visibility:room.visibility||'friends',passwordProtected:!!room.password,hostId:room.hostId,mode:room.mode||'ghost',capacity:room.capacity||8,collide:room.collide!==false,locked:!!room.locked,launched:!!room.launched,gate:!!room.gate,launchId:room.launchId||0,lobbyRev:room.lobbyRev||0,phase:roomPhase(room),start:room.start||null,rules:room.rules||null,countdownMs:room.countdownMs||countdown,results:room.results||null,restartVote:voteState(room),capabilities:['shared-physics-v1','shared-pose-v1',authority.PROTOCOL,'restart-vote-v1','race-transitions-v1','lobby-directory-v1'],meta:room.meta,pick:room.pick||null,checking:!!room.check,players:[...room.players.values()].map(p=>rosterEntry(room,p))});
   function resetReady(room){room.check=false;room.start=null;for(const p of room.players.values()){p.ready=false;p.finished=false;p.finishTime=null;p.lastTime=-1;}}
   function clearResultsTimer(room){if(room.resultsTimer){clearTimeout(room.resultsTimer);room.resultsTimer=null;}if(room.survivalTimer){clearTimeout(room.survivalTimer);room.survivalTimer=null;}}
   function cancel(room,message){clearResultsTimer(room);room.results=null;room.lingerUntil=null;resetReady(room);clearAttempt(room);broadcast(room,{type:'cancel',message,launchId:0,lobbyRev:room.lobbyRev});state(room);}
@@ -303,11 +336,15 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000,restartVoteMs=3
     ws.on('pong',()=>ws.alive=true);
     ws.on('error',()=>{});
     ws.on('close',()=>{clearTimeout(greeting);leave(ws);});
-    ws.on('message',raw=>{
+    ws.on('message',async raw=>{
       try{
         ws.alive=true;
         const now=Date.now();if(now-ws.budgetAt>1000){ws.budget=0;ws.budgetAt=now;}if(++ws.budget>120){ws.close(1008,'Rate limit');return;}
         const m=JSON.parse(raw);if(!m||typeof m!=='object')throw Error('Invalid message');
+        if(m.type==='browse'){
+          if(ws.browseAt&&now-ws.browseAt<1500)throw Error('Please wait before refreshing.');
+          ws.browseAt=now;send(ws,directory());return;
+        }
         if(m.type==='ping'){
           if(typeof m.clientTime==='number'&&Number.isFinite(m.clientTime))send(ws,{type:'pong',clientTime:m.clientTime,serverTime:Date.now()});
           return;
@@ -359,16 +396,33 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000,restartVoteMs=3
           return;
         }
         if(m.type==='create'||m.type==='join'){
+          if(ws.joinPending)throw Error('A room connection is already in progress.');
           if(ws.room)throw Error('Leave the current room first');if(m.protocol!==core.VERSION&&m.meta?.protocol!==core.VERSION)throw Error('Unsupported game protocol');if(m.meta!=null&&!validMeta(m.meta))throw Error('Invalid level');
+          ws.joinPending=true;
+          try{
           let room;
           if(m.type==='create'){
+            limitedAccess(ws);
+            if(m.visibility!=null&&!['public','friends'].includes(m.visibility))throw Error('Choose Public or Friends only.');
+            const password=await passwordRecord(m.password);
+            if(ws.readyState!==WebSocket.OPEN)return;
             if(rooms.size>=100)throw Error('Relay is full');const code=randomBytes(8).toString('hex').toUpperCase();const capacity=Math.max(2,Math.min(16,Number.isInteger(m.capacity)?m.capacity:8));room={code,hostId:ws.id,mode:m.mode==='shared'?'shared':'ghost',capacity,collide:true,locked:false,launched:!!m.meta,gate:false,launchId:0,launchSeq:0,lobbyRev:0,rosterLaunch:0,phase:'lobby',rules:null,countdownMs:null,lingerMs:45000,lingerUntil:null,results:null,resultsTimer:null,meta:m.meta||null,pick:m.meta||null,players:new Map(),start:null,check:false};rooms.set(code,room);totals.roomsCreated++;
+            Object.assign(room,{name:cleanLabel(m.roomName)||cleanLabel(m.name,24)+"'s room",visibility:m.visibility||'friends',password,createdAt:Date.now()});
           }else{
+            limitedAccess(ws);
             room=rooms.get(String(m.code));if(!room)throw Error('Room not found');if(room.locked)throw Error('Room is locked');if(room.start)throw Error('Race in progress');if(room.launchId&&!room.results)throw Error('Wait for the next race.');
             if(room.players.size>=(room.capacity||8))throw Error('Room is full');
+            if(room.password&&(typeof m.password!=='string'||m.password.length>64||!timingSafeEqual(await passwordKey(m.password,room.password.salt),room.password.key)))throw Error('This room needs the correct password.');
+            if(ws.readyState!==WebSocket.OPEN)return;
+            // The host may start, lock, close or fill the room while scrypt runs.
+            if(rooms.get(room.code)!==room)throw Error('Room not found');
+            if(room.locked)throw Error('Room is locked');
+            if(room.start||room.check||(room.launchId&&!room.results))throw Error('Wait for the next race.');
+            if(room.players.size>=room.capacity)throw Error('Room is full');
           }
           endVote(room,'playersChanged');
           clearTimeout(greeting);ws.name=typeof m.name==='string'?m.name.slice(0,24):'Racer';ws.meta=m.meta;ws.confirmed=room.rules?.rider||null;ws.character=ws.confirmed;ws.skin='';ws.prepared=false;ws.worldAck=false;ws.room=room;ws.phase=room.launchId?'loading':room.launched&&room.meta&&core.compatible(room.meta,m.meta)?'ingame':room.launched&&room.meta?'loading':'lobby';room.players.set(ws.id,ws);send(ws,{type:'identity',id:ws.id});state(room);for(const p of room.players.values()){if(p!==ws&&p.avatar)send(ws,{type:'profile',id:p.id,name:p.name,avatar:p.avatar});}if(room.launchId&&room.meta)send(ws,{type:'launch',launchId:room.launchId,meta:room.meta,rider:room.rules?.rider||null,countdownMs:room.countdownMs||countdown,phase:roomPhase(room)});else if(room.launched&&room.meta&&!core.compatible(room.meta,m.meta))send(ws,{type:'travel',meta:room.meta});return;
+          }finally{ws.joinPending=false;}
         }
         const room=ws.room;if(!room)throw Error('Join a room first');
         if(m.type==='requestRestart'){requestRestart(room,ws,m);return;}
@@ -410,7 +464,8 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000,restartVoteMs=3
           if(ws.id!==room.hostId)throw Error('Only the host can change the mode');
           if(!['ghost','shared'].includes(m.mode))throw Error('Invalid multiplayer mode');
           if(room.start||room.check||(room.launchId&&!room.results))throw Error('Change mode before starting a ready check');
-          room.mode=m.mode;resetReady(room);state(room);return;
+          if(room.mode===m.mode)return;
+          room.mode=m.mode;returnToLobby(room);return;
         }
         if(m.type==='collide'){
           if(ws.id!==room.hostId)throw Error('Only the host can change bumps');

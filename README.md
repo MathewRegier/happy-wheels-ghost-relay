@@ -40,7 +40,7 @@ Happy Wheels ghost racing relay
 Stats: /stats
 ```
 
-Live rooms are at `/stats`. Each room shows its code, Ghost Multiplayer or Shared Physics, and how many players are in it out of the limit the host set, such as 3/12.
+Public rooms are listed in the in-game browser through a separate short-lived WebSocket `browse` request (`lobby-directory-v1`). The response contains room names, host names, map titles, occupancy, mode, join availability and a password-required flag; never password hashes. Friends-only and older unlisted rooms are omitted. Public `/stats` also omits their codes and participants. A token-protected stats endpoint can show them to the server owner. Passwords use per-room random salts and scrypt hashes; room attempts are limited per socket and expensive hashing has a bounded relay-wide budget (4 concurrent, 8 per second). Hashing runs asynchronously so it does not block game messages. No client IP headers are trusted, and players behind Railway or a home router do not share an address cooldown. Joins revalidate occupancy and race state after hashing.
 Optional lock: set `HW_RELAY_STATS_TOKEN` on Railway, then open `/stats?token=YOURTOKEN`.
 
 ## 3. Connect from the game
