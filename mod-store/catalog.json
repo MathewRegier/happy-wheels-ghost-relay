@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-02",
+  "updated": "2026-10-01",
   "host": "github",
   "mods": [
     {
@@ -14,11 +14,11 @@
     {
       "id": "jimbobs-multiplayer",
       "name": "Jimbob's Multiplayer Mod",
-      "version": "0.6.1",
+      "version": "0.5.7",
       "author": "Jimbob \u00b7 Discord jimbob1111",
-      "description": "Full-screen public room browser, password-protected and friends-only rooms, Steam invites, lobby chat and easy mode switching. Race in Ghost Multiplayer or interact in one host-run Shared Physics world. Created by Jimbob.",
-      "file": "zips/jimbobs-multiplayer-0.6.1.zip",
-      "sha256": "23a6aca5be0d8cb507b00321082871fb6ba05be46b7c75a33f8dc6fccda2b58e"
+      "description": "Race friends on the same level. Ghost Multiplayer shows other players as ghosts. Shared Physics is one shared world where you can bump. Live scoreboard, rooms for 2 to 16 players, and a hosted relay. Custom character skins show when both players have the same pack. Created by Jimbob \u2014 Discord jimbob1111.",
+      "file": "zips/jimbobs-multiplayer-0.5.7.zip",
+      "sha256": "9eb53488efc4af728cbb5726df1bb5d871aefcc2f83dff46eb75b8e4e416d536"
     }
   ],
   "launcher": {
