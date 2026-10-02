@@ -102,8 +102,8 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000,restartVoteMs=3
   wss.address=()=>http.address();
   http.on('listening',()=>wss.emit('listening'));
   http.on('error',e=>wss.emit('error',e));
-  function send(ws,m){if(!ws||ws.readyState!==WebSocket.OPEN)return;if(ws.bufferedAmount>=1024*1024){ws.close(1013,'Connection cannot keep up; reconnect');return;}const essential=m.type==='authorityState'&&(m.full||m.effects?.length||m.textures?.length||m.removed?.length||(m.players||[]).some(p=>p.events?.length||p.resetEvents));if(m.type==='authorityState'&&!essential&&ws.bufferedAmount>128*1024)return;ws.send(JSON.stringify(m));}
-  const broadcast=(room,m,except)=>{for(const p of room.players.values())if(p!==except)send(p,m);};
+  function send(ws,m,encoded){if(!ws||ws.readyState!==WebSocket.OPEN)return;if(ws.bufferedAmount>=1024*1024){ws.close(1013,'Connection cannot keep up; reconnect');return;}const essential=m.type==='authorityState'&&(m.full||m.effects?.length||m.textures?.length||m.removed?.length||(m.players||[]).some(p=>p.events?.length||p.resetEvents));if(m.type==='authorityState'&&!essential&&m.baselineId!=null&&ws.bufferedAmount>128*1024)return;ws.send(encoded??JSON.stringify(m));}
+  const broadcast=(room,m,except)=>{const encoded=JSON.stringify(m);for(const p of room.players.values())if(p!==except)send(p,m,encoded);};
   function playerPhase(room,p){
     if(p.phase==='ingame'||p.phase==='selecting'||p.phase==='loading'||p.phase==='lobby')return p.phase;
     if(!room.meta)return 'lobby';

@@ -38,6 +38,8 @@ function validEffect(e){
  return typeof e.method==='string'&&/^[A-Za-z]{1,40}$/.test(e.method)&&Array.isArray(e.args)&&e.args.length<=12&&e.args.every(effectArg);
 }
 function validateState(m,ids){
+ if(m.snapshotId!=null&&!integer(m.snapshotId))return false;
+ if(m.baselineId!=null&&(!integer(m.baselineId)||!integer(m.snapshotId)||m.baselineId>m.snapshotId||m.full&&m.baselineId!==m.snapshotId))return false;
  if(m.time!=null&&(!Number.isFinite(m.time)||m.time<0))return false;
  if(m.effects!=null&&(!Array.isArray(m.effects)||m.effects.length>128||!m.effects.every(validEffect)))return false;
  if(!integer(m.revision)||!integer(m.tick)||typeof m.signature!=='string'||m.signature.length>100000||!Array.isArray(m.players)||m.players.length>16||!Array.isArray(m.world)||m.world.length>6000)return false;
