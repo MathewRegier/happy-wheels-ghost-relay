@@ -14,11 +14,11 @@
     {
       "id": "jimbobs-multiplayer",
       "name": "Jimbob's Multiplayer Mod",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "author": "Jimbob \u00b7 Discord jimbob1111",
       "description": "Full-screen public room browser, password-protected and friends-only rooms, Steam invites, lobby chat and easy mode switching. Race in Ghost Multiplayer or interact in one host-run Shared Physics world. Created by Jimbob.",
-      "file": "zips/jimbobs-multiplayer-0.6.0.zip",
-      "sha256": "caad87407b5c4438790fd34e9e46cb89e2426316cb0c5318667aa4b2e6458fc5"
+      "file": "zips/jimbobs-multiplayer-0.6.1.zip",
+      "sha256": "23a6aca5be0d8cb507b00321082871fb6ba05be46b7c75a33f8dc6fccda2b58e"
     }
   ],
   "launcher": {
