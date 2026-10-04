@@ -38,6 +38,11 @@ function validEffect(e){
  return typeof e.method==='string'&&/^[A-Za-z]{1,40}$/.test(e.method)&&Array.isArray(e.args)&&e.args.length<=12&&e.args.every(effectArg);
 }
 function validateState(m,ids){
+ if(m.scene!=null){
+  if(!Array.isArray(m.scene)||m.scene.length>6000)return false;
+  const ids=new Set();
+  for(const row of m.scene){if(!Array.isArray(row)||row.length!==4||!integer(row[0],5999)||ids.has(row[0])||![0,1].includes(row[1])||!Number.isFinite(row[2])||row[2]<0||row[2]>1||![0,1].includes(row[3]))return false;ids.add(row[0]);}
+ }
  if(m.snapshotId!=null&&!integer(m.snapshotId))return false;
  if(m.baselineId!=null&&(!integer(m.baselineId)||!integer(m.snapshotId)||m.baselineId>m.snapshotId||m.full&&m.baselineId!==m.snapshotId))return false;
  if(m.time!=null&&(!Number.isFinite(m.time)||m.time<0))return false;

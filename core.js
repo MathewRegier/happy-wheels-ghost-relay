@@ -44,7 +44,12 @@
       (t.trim===null || Array.isArray(t.trim)&&t.trim.length===4&&t.trim.every(x=>finite(x,16384))) &&
       Number.isInteger(t.rotate)&&t.rotate>=0&&t.rotate<=15;
   }
-  function compatible(a,b) {return !!a&&!!b&&a.protocol===VERSION&&b.protocol===VERSION&&a.level===b.level&&!!a.hash&&a.hash===b.hash;}
+  function validMeta(m) {
+    if(!m||m.protocol!==VERSION||typeof m.level!=='string'||!/^[1-9][0-9]{0,8}$/.test(m.level)||typeof m.hash!=='string'||!/^[a-f0-9]{64}$/.test(m.hash))return false;
+    if(m.source==null||m.source==='official')return m.mapId==null&&m.revision==null;
+    return m.source==='jimbob'&&/^9\d{8}$/.test(m.level)&&typeof m.mapId==='string'&&/^[a-f0-9]{16}$/.test(m.mapId)&&Number.isSafeInteger(m.revision)&&m.revision>0&&m.revision<=1000000;
+  }
+  function compatible(a,b) {return !!a&&!!b&&a.protocol===VERSION&&b.protocol===VERSION&&a.level===b.level&&!!a.hash&&a.hash===b.hash&&(a.source||'official')===(b.source||'official')&&(a.mapId||null)===(b.mapId||null)&&(a.revision||null)===(b.revision||null)&&(a.source!=='jimbob'||validMeta(a)&&validMeta(b));}
   function interpolate(a,b,t) {
     if(!a) return b;
     if(!b || b.t<=a.t || t<=a.t) return a;
@@ -85,7 +90,7 @@
     for(const f of r.frames){if(!validFrame(f)||f.t<last||f.parts.some(p=>p[1]>=r.textures.length))throw Error('Invalid ghost frame');last=f.t;}
     return r;
   }
-  const api={VERSION,validFrame,validTexture,publicTexturePath,compatible,interpolate,sample,liveSample,validateRecording,anchorTargets};
+  const api={VERSION,validFrame,validTexture,publicTexturePath,validMeta,compatible,interpolate,sample,liveSample,validateRecording,anchorTargets};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   else root.HWGhostCore=api;
 })(globalThis);
