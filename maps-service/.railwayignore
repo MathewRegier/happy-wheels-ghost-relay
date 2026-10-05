@@ -1,0 +1,12 @@
+**/node_modules
+**/npm-cache
+**/.env
+**/.env.*
+**/data
+**/*.sqlite*
+**/*.log
+**/.git
+dev
+release
+recordings
+*.zip

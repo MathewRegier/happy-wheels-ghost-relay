@@ -1,3 +1,14 @@
 node_modules/
 .DS_Store
 *.log
+
+# Private server settings, local caches and catalogue data
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules/
+**/npm-cache/
+**/data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm

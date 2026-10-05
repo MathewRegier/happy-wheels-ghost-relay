@@ -1,1 +1,1 @@
-web: node server.cjs
+web: node maps-service/server.cjs

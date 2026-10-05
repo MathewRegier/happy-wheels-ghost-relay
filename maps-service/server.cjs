@@ -1,0 +1,13 @@
+'use strict';
+const path=require('node:path');
+const {createMaps}=require('./service.cjs');
+const {B2Storage,LocalStorage}=require('./storage.cjs');
+const {createRelay}=require('../relay/server.cjs');
+const directory=path.resolve(process.env.MAPS_DATA_DIR||path.join(__dirname,'data'));
+const storage=process.env.MAPS_STORAGE==='local'?new LocalStorage(path.join(directory,'objects')):new B2Storage();
+if(!process.env.MAPS_PUBLISH_TOKEN||process.env.MAPS_PUBLISH_TOKEN.length<32)throw Error('Set MAPS_PUBLISH_TOKEN to a random secret of at least 32 characters.');
+const maps=createMaps({directory,storage,publishToken:process.env.MAPS_PUBLISH_TOKEN,author:process.env.MAPS_AUTHOR||'Jimbob',trustProxy:process.env.MAPS_TRUST_PROXY==='1'});
+const relay=createRelay({host:process.env.HOST||'0.0.0.0',port:Number(process.env.PORT||19799),httpHandler:maps.handle,resolveMap:maps.resolve});
+relay.wss.on('listening',()=>console.log('Jimbob Maps + Multiplayer listening on port '+relay.wss.address().port+'; catalogue: /maps'));
+relay.wss.on('error',e=>{console.error(e.message);process.exitCode=1;});
+let stopping=false;async function stop(){if(stopping)return;stopping=true;await relay.close();await maps.close();process.exit();}process.on('SIGTERM',stop);process.on('SIGINT',stop);

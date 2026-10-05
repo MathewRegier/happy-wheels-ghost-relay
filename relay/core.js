@@ -1,0 +1,96 @@
+(function (root) {
+  'use strict';
+  const VERSION = 'hw199-ghost-1';
+  const finite = (x, limit=1e8) => typeof x === 'number' && Number.isFinite(x) && Math.abs(x)<=limit;
+  const HEAD_DISPLAY=['head1MC','headMC','headSprite'];
+  const HEAD_BODY=['head1Body','headBody'];
+  const TORSO_DISPLAY=['chestMC','torsoMC','upperTorsoMC','pelvisMC'];
+  const TORSO_BODY=['chestBody','torsoBody','upperTorso','pelvisBody'];
+  function ownField(obj, keys){
+    if(!obj||typeof obj!=='object')return null;
+    for(const key of keys)if(obj[key])return obj[key];
+    return null;
+  }
+  // Primary rider only. Nested passengers, elves, and vehicles are ignored.
+  function anchorTargets(character, rank){
+    const torso=rank==='torso';
+    return {rank:torso?'torso':'head', display:ownField(character, torso?TORSO_DISPLAY:HEAD_DISPLAY), body:ownField(character, torso?TORSO_BODY:HEAD_BODY)};
+  }
+  function validHead(head){
+    return head==null || (!!head && typeof head==='object' && finite(head.x) && finite(head.y));
+  }
+  function validFrame(f) {
+    return !!f && finite(f.t, 86400000) && f.t>=0 && Array.isArray(f.parts) && f.parts.length<=1200 && validHead(f.head) &&
+      f.parts.every(p=>Array.isArray(p)&&p.length===12&&p.every(x=>finite(x))&&Number.isInteger(p[0])&&p[0]>=0&&p[0]<100000&&Number.isInteger(p[1])&&p[1]>=0&&p[1]<4096&&p[8]>=0&&p[8]<=1&&Number.isInteger(p[9])&&p[9]>=0&&p[9]<=0xffffff);
+  }
+  function allowedTextureUrl(url) {
+    return typeof url==='string' && !url.includes('..') && (
+      /^assets-[a-z0-9]+\/animate\/[a-zA-Z0-9_./@-]+\.png$/.test(url) ||
+      /^js\/jimbobs-custom-characters\/characters\/[a-z0-9][a-z0-9-]*\/[a-zA-Z0-9._-]+\.png$/.test(url)
+    );
+  }
+  function publicTexturePath(raw, pageHref) {
+    if(typeof raw!=='string'||!raw||raw.includes('..'))return null;
+    try{
+      const href=pageHref||(typeof location!=='undefined'?location.href:'https://totaljerkface.com/__hw_app__/index.html');
+      const path=new URL(raw,href).pathname;
+      const rel=decodeURIComponent((path.split('/__hw_app__/')[1]||path).replace(/^\//,''));
+      return rel&&!rel.includes('..')?rel:null;
+    }catch{return null;}
+  }
+  function validTexture(t) {
+    return !!t && allowedTextureUrl(t.url) &&
+      ['frame','orig'].every(k=>Array.isArray(t[k])&&t[k].length===4&&t[k].every(x=>finite(x,16384))) &&
+      (t.trim===null || Array.isArray(t.trim)&&t.trim.length===4&&t.trim.every(x=>finite(x,16384))) &&
+      Number.isInteger(t.rotate)&&t.rotate>=0&&t.rotate<=15;
+  }
+  function validMeta(m) {
+    if(!m||m.protocol!==VERSION||typeof m.level!=='string'||!/^[1-9][0-9]{0,8}$/.test(m.level)||typeof m.hash!=='string'||!/^[a-f0-9]{64}$/.test(m.hash))return false;
+    if(m.source==null||m.source==='official')return m.mapId==null&&m.revision==null;
+    return m.source==='jimbob'&&/^9\d{8}$/.test(m.level)&&typeof m.mapId==='string'&&/^[a-f0-9]{16}$/.test(m.mapId)&&Number.isSafeInteger(m.revision)&&m.revision>0&&m.revision<=1000000;
+  }
+  function compatible(a,b) {return !!a&&!!b&&a.protocol===VERSION&&b.protocol===VERSION&&a.level===b.level&&!!a.hash&&a.hash===b.hash&&(a.source||'official')===(b.source||'official')&&(a.mapId||null)===(b.mapId||null)&&(a.revision||null)===(b.revision||null)&&(a.source!=='jimbob'||validMeta(a)&&validMeta(b));}
+  function interpolate(a,b,t) {
+    if(!a) return b;
+    if(!b || b.t<=a.t || t<=a.t) return a;
+    if(t>=b.t) return b;
+    const u=(t-a.t)/(b.t-a.t), other=new Map(b.parts.map(p=>[p[0],p]));
+    const mix=(key,fallback=0)=>{
+      const av=Number(a[key]),bv=Number(b[key]);
+      if(Number.isFinite(av)&&Number.isFinite(bv))return av+(bv-av)*u;
+      return Number.isFinite(bv)?bv:Number.isFinite(av)?av:fallback;
+    };
+    const ok=h=>h&&finite(h.x)&&finite(h.y);
+    const head=ok(a.head)&&ok(b.head)?{x:a.head.x+(b.head.x-a.head.x)*u,y:a.head.y+(b.head.y-a.head.y)*u}:ok(b.head)?{x:b.head.x,y:b.head.y}:ok(a.head)?{x:a.head.x,y:a.head.y}:undefined;
+    const frame={...a,t,progress:mix('progress'),current:mix('current'),best:mix('best'),parts:a.parts.map(p=>{
+      const q=other.get(p[0]); if(!q||q[1]!==p[1])return p;
+      const out=p.slice();
+      // Interpolate affine transforms; appearance changes occur at their sample boundary.
+      for(let i=2;i<=8;i++)out[i]=p[i]+(q[i]-p[i])*u;
+      return out;
+    })};
+    if(head)frame.head=head;else delete frame.head;
+    return frame;
+  }
+  function sample(frames,t) {
+    if(!frames.length)return null;
+    let lo=0,hi=frames.length-1;
+    while(lo<hi){const mid=Math.ceil((lo+hi)/2);if(frames[mid].t<=t)lo=mid;else hi=mid-1;}
+    return interpolate(frames[lo],frames[lo+1],t);
+  }
+  // Play ~delay ms behind the newest arrival so live ghosts do not depend on clock sync.
+  function liveSample(frames,now,lastArrival,delay=120) {
+    if(!frames.length)return null;
+    const newest=frames[frames.length-1];
+    return sample(frames,newest.t+(now-lastArrival)-delay);
+  }
+  function validateRecording(r) {
+    if(!r||r.meta?.protocol!==VERSION||!Array.isArray(r.textures)||r.textures.length>4096||!r.textures.every(validTexture)||!Array.isArray(r.frames)||r.frames.length>7200||!r.frames.length)throw Error('Unsupported or invalid ghost file');
+    let last=-1;
+    for(const f of r.frames){if(!validFrame(f)||f.t<last||f.parts.some(p=>p[1]>=r.textures.length))throw Error('Invalid ghost frame');last=f.t;}
+    return r;
+  }
+  const api={VERSION,validFrame,validTexture,publicTexturePath,validMeta,compatible,interpolate,sample,liveSample,validateRecording,anchorTargets};
+  if(typeof module!=='undefined'&&module.exports)module.exports=api;
+  else root.HWGhostCore=api;
+})(globalThis);

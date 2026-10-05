@@ -2,15 +2,16 @@
   "name": "happy-wheels-ghost-relay",
   "version": "0.1.0",
   "private": true,
-  "description": "WebSocket room relay for Happy Wheels ghost racing. Deploy this folder to Railway.",
-  "main": "server.cjs",
+  "description": "Jimbob Maps catalogue, publishing API and Happy Wheels Multiplayer relay",
+  "main": "maps-service/server.cjs",
   "scripts": {
-    "start": "node server.cjs"
+    "start": "node maps-service/server.cjs",
+    "start:relay-only": "node server.cjs"
   },
   "engines": {
-    "node": ">=18"
+    "node": "24.x"
   },
   "dependencies": {
-    "ws": "8.20.0"
+    "ws": "8.22.0"
   }
 }
