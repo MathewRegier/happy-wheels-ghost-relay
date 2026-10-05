@@ -14,7 +14,7 @@ import time
 
 from launcher_version import VERSION
 
-GAME_VERSION = '1.99.2'
+GAME_VERSION = '1.99.2-s'
 
 
 def strip_inlined_hw_ghost_net(text: str) -> str:
