@@ -1,6 +1,6 @@
 # Jimbob Maps and Happy Wheels Multiplayer relay
 
-This repository now deploys the combined Maps catalogue, map publishing API, public `/maps` page and Multiplayer WebSocket relay. Players only need Multiplayer; map creators upload with Builder.
+This repository now deploys the combined Maps catalogue, map publishing API, public `/maps` page, Community Skins at `/skins` and `/api/skins`, and the Multiplayer WebSocket relay. Players only need Multiplayer for maps. Community skins need Custom Characters. Map creators upload with Builder.
 
 The launcher and mod SDK remain in [jhwml](https://github.com/MathewRegier/jhwml). Existing mod downloads remain in `mod-store/`; this backend deployment does not update those release archives.
 
@@ -10,7 +10,7 @@ Deploy the repository root using **Railpack**, with Config File `/railway.toml`.
 
 The build installs root relay dependencies and `maps-service` dependencies. Node.js 24 is required. The server starts with `node maps-service/server.cjs`, binds to `0.0.0.0` and Railway's `PORT`, and exposes `/api/maps/health` for healthchecks.
 
-Configure the B2 credentials and publishing secret in Railway's Variables, never in this repository. `B2_ENDPOINT` must be a full HTTPS URL, such as `https://s3.us-east-005.backblazeb2.com`. Mount a persistent volume at `/data/jimbob-maps`, set `MAPS_DATA_DIR=/data/jimbob-maps`, and use one replica.
+Configure the B2 credentials and publishing secret in Railway's Variables, never in this repository. `B2_ENDPOINT` must be a full HTTPS URL, such as `https://s3.us-east-005.backblazeb2.com`. Mount a persistent volume at `/data/jimbob-maps`, set `MAPS_DATA_DIR=/data/jimbob-maps`, and use one replica. Community skins store ownership in `skins.sqlite` in that same directory and artwork in the existing B2 bucket. Leave `SKINS_PUBLIC_UPLOADS` unset to allow publishing, or set it to `0` to keep browsing while closing new uploads. After deploy, `/api/maps/health` and `/api/skins/health` should both succeed.
 
 See [the complete Maps setup guide](maps-service/README.md) for the required variables, B2 application key setup, publishing and client connections. The healthcheck confirms startup; publishing and loading a test map separately verifies B2 access.
 
