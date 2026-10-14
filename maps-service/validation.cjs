@@ -2,7 +2,7 @@
 const {DOMParser}=require('@xmldom/xmldom');
 const {createHash}=require('node:crypto');
 const course=require('../mods/jimbobs-multiplayer/web/course.js');
-const MAX_XML=16*1024*1024,MAX_NODES=60000;
+const MAX_XML=16*1024*1024,MAX_NODES=60000,MAX_TEXT=32768,MAX_STUDIO_TEXT=800012;
 const hash=body=>createHash('sha256').update(body).digest('hex');
 function fail(text){const error=Error(text);error.status=400;throw error;}
 function validateXml(xml){
@@ -25,18 +25,30 @@ function validateXml(xml){
   const character=Number(info.getAttribute('c')||1);if(!Number.isInteger(character)||character<1||character>11)fail('Unsupported template character.');
   const objects={};const sections={shapes:'sh',specials:'sp',groups:'g',joints:'j',triggers:'t'};
   for(const [name,item] of Object.entries(sections))objects[name]=children.filter(n=>n.tagName===name).flatMap(n=>Array.from(n.childNodes)).filter(n=>n.nodeType===1&&n.tagName===item).length;
-  const boxes=[];
+  const boxes=[];let studioMarkers=0,studioData=null;
   for(const node of Array.from(root.getElementsByTagName('sp'))){
     if(node.getAttribute('t')!=='16')continue;
     const text=node.getAttribute('p7')||node.getElementsByTagName('p7')[0]?.textContent||'';
     const x=Number(node.getAttribute('p0')||0),y=Number(node.getAttribute('p1')||0);
     if(!Number.isFinite(x)||!Number.isFinite(y)||Math.abs(x)>1e6||Math.abs(y)>1e6)fail('Invalid text-box coordinates.');
-    if(text.length>32768)fail('A text box is too long.');boxes.push({text,x,y});
+    if(text.startsWith('#jtycoon ')){
+      if(++studioMarkers>1)fail('A map can contain only one Studio project marker.');
+      if(text.length>MAX_STUDIO_TEXT)fail('Studio project data exceeds its size limit.');
+      // This hidden marker transports the authored scene, scripts and bindings;
+      // it is not player-facing text. Validate it with the same bounded decoder
+      // used by Multiplayer, without executing any of its scripts.
+      continue;
+    }
+    if(text.length>MAX_TEXT)fail('A text box is too long.');boxes.push({text,x,y});
+  }
+  if(studioMarkers){
+    try{studioData=require('../mods/jimbobs-multiplayer/web/level-project.js').metadata(xml);if(!studioData)throw Error('The marker is not a top-level Studio project.');}
+    catch(error){fail('Invalid Studio project data: '+String(error.message||error).slice(0,300));}
   }
   const compiled=course.compile(boxes);
   const rules={play:compiled.play||null,waitSec:compiled.waitSec||null,seats:compiled.seats||null,rider:compiled.rider||null,lingerMs:compiled.lingerMs||null};
   if(compiled.play==='survival'&&!compiled.starts.length)fail('Survival maps need at least one multiplayer spawn marker.');
-  return {hash:hash(Buffer.from(xml,'utf8')),size:Buffer.byteLength(xml),objects,rules,character,starts:compiled.starts.length,format:'levelXML',requiredFeatures:['hosted-maps-v1'],minModVersion:'0.7.0'};
+  return {hash:hash(Buffer.from(xml,'utf8')),size:Buffer.byteLength(xml),objects,rules,character,starts:compiled.starts.length,format:'levelXML',requiredFeatures:['hosted-maps-v1'],minModVersion:studioData?'0.9.0':'0.7.0'};
 }
 function validatePreview(value){
   if(value==null||value==='')return null;
@@ -50,4 +62,4 @@ function validatePreview(value){
   return {body,hash:hash(body),width,height};
 }
 function label(value,max,required=false){if(typeof value!=='string')value='';const text=value.replace(/[\u0000-\u001f\u007f]/g,' ').trim();if(text.length>max||required&&!text)fail('Enter a '+(required?'non-empty ':'')+'label of up to '+max+' characters.');return text;}
-module.exports={validateXml,validatePreview,label,hash,MAX_XML};
+module.exports={validateXml,validatePreview,label,hash,MAX_XML,MAX_TEXT,MAX_STUDIO_TEXT};
