@@ -131,12 +131,19 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000,restartVoteMs=3
     const confirmed=Number.isInteger(p.confirmed)?p.confirmed:null;
     return {id:p.id,name:p.name,ready:p.ready,phase,loaded:room.launchId?!!p.prepared:phase==='ingame',character:confirmed,confirmed,skin:p.skin||'',prepared:!!p.prepared,finished:!!p.finished,time:p.finished?p.finishTime:null};
   }
-  const state=room=>broadcast(room,{type:'room',code:room.code,name:room.name||'Happy Wheels room',visibility:room.visibility||'friends',passwordProtected:!!room.password,hostId:room.hostId,mode:room.mode||'ghost',capacity:room.capacity||8,collide:room.collide!==false,locked:!!room.locked,launched:!!room.launched,gate:!!room.gate,launchId:room.launchId||0,lobbyRev:room.lobbyRev||0,phase:roomPhase(room),start:room.start||null,rules:room.rules||null,countdownMs:room.countdownMs||countdown,results:room.results||null,restartVote:voteState(room),capabilities:['shared-physics-v1','shared-pose-v1',authority.PROTOCOL,'restart-vote-v1','race-transitions-v1','lobby-directory-v1',...(resolveMap?['hosted-maps-v1']:[])],meta:room.meta,pick:room.pick||null,checking:!!room.check,players:[...room.players.values()].map(p=>rosterEntry(room,p))});
+  const state=room=>broadcast(room,{type:'room',code:room.code,name:room.name||'Happy Wheels room',visibility:room.visibility||'friends',passwordProtected:!!room.password,hostId:room.hostId,mode:room.mode||'ghost',capacity:room.capacity||8,solo:!!room.solo,collide:room.collide!==false,locked:!!room.locked,launched:!!room.launched,gate:!!room.gate,launchId:room.launchId||0,lobbyRev:room.lobbyRev||0,phase:roomPhase(room),start:room.start||null,rules:room.rules||null,countdownMs:room.countdownMs||countdown,results:room.results||null,restartVote:voteState(room),capabilities:['shared-physics-v1','shared-pose-v1',authority.PROTOCOL,'restart-vote-v1','race-transitions-v1','lobby-directory-v1',...(resolveMap?['hosted-maps-v1']:[])],meta:room.meta,pick:room.pick||null,checking:!!room.check,players:[...room.players.values()].map(p=>rosterEntry(room,p))});
   function resetReady(room){room.check=false;room.start=null;for(const p of room.players.values()){p.ready=false;p.finished=false;p.finishTime=null;p.lastTime=-1;}}
   function clearResultsTimer(room){if(room.resultsTimer){clearTimeout(room.resultsTimer);room.resultsTimer=null;}if(room.survivalTimer){clearTimeout(room.survivalTimer);room.survivalTimer=null;}}
   function cancel(room,message){clearResultsTimer(room);room.results=null;room.lingerUntil=null;resetReady(room);clearAttempt(room);broadcast(room,{type:'cancel',message,launchId:0,lobbyRev:room.lobbyRev});state(room);}
-  function allReady(room){return room.players.size>=2&&[...room.players.values()].every(p=>p.ready&&core.compatible(room.meta,p.meta));}
-  function allLobbyReady(room){return room.players.size>=2&&[...room.players.values()].every(p=>p.ready);}
+  function soloRoom(room){return !!room.solo||room.capacity===1;}
+  function enoughRacers(room){return room.players.size>=(soloRoom(room)?1:2);}
+  function allReady(room){return enoughRacers(room)&&[...room.players.values()].every(p=>p.ready&&core.compatible(room.meta,p.meta));}
+  function allLobbyReady(room){return enoughRacers(room)&&[...room.players.values()].every(p=>p.ready);}
+  function applyMapRules(room,rules){
+    if(soloRoom(room)&&rules.play==='survival')throw Error('Survival courses need at least two players.');
+    if(rules.seats&&room.players.size>rules.seats)throw Error('Too many players for this map');
+    if(rules.seats&&!room.solo)room.capacity=rules.seats;
+  }
   function cleanRules(raw){
     const rules={};
     if(!raw||typeof raw!=='object')return rules;
@@ -255,7 +262,7 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000,restartVoteMs=3
     return [...room.players.values()].map(p=>({id:p.id,name:p.name,characterId:p.confirmed,skinId:p.skin||''}));
   }
   function tryLoad(room){
-    if(!room||room.phase!=='selecting'||room.start||room.results||room.players.size<2)return;
+    if(!room||room.phase!=='selecting'||room.start||room.results||!enoughRacers(room))return;
     if(![...room.players.values()].every(p=>Number.isInteger(p.confirmed)))return;
     room.phase='loading';
     for(const p of room.players.values())p.phase='loading';
@@ -263,7 +270,7 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000,restartVoteMs=3
     state(room);
   }
   function tryCountdown(room){
-    if(!room?.launchId||room.phase!=='loading'||room.start||room.results||room.players.size<2)return;
+    if(!room?.launchId||room.phase!=='loading'||room.start||room.results||!enoughRacers(room))return;
     const players=[...room.players.values()];
     if(!players.every(p=>p.prepared&&Number.isInteger(p.confirmed)))return;
     if(room.mode==='shared'&&(room.rosterLaunch!==room.launchId||!players.every(p=>p.worldAck)))return;
@@ -271,6 +278,7 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000,restartVoteMs=3
   }
   function launchRoom(room,{keepCharacters=false,reason='launch'}={}){
     if(!room.meta)throw Error('Pick a level first');
+    if(soloRoom(room)&&room.rules?.play==='survival')throw Error('Survival courses need at least two players.');
     endVote(room,'cancelled');
     clearResultsTimer(room);
     room.results=null;
@@ -410,7 +418,7 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000,restartVoteMs=3
             if(m.visibility!=null&&!['public','friends'].includes(m.visibility))throw Error('Choose Public or Friends only.');
             const password=await passwordRecord(m.password);
             if(ws.readyState!==WebSocket.OPEN)return;
-            if(rooms.size>=100)throw Error('Relay is full');const code=randomBytes(8).toString('hex').toUpperCase();const capacity=Math.max(2,Math.min(16,Number.isInteger(m.capacity)?m.capacity:8));room={code,hostId:ws.id,mode:m.mode==='shared'?'shared':'ghost',capacity,collide:true,locked:false,launched:!!m.meta,gate:false,launchId:0,launchSeq:0,lobbyRev:0,rosterLaunch:0,phase:'lobby',rules:null,countdownMs:null,lingerMs:45000,lingerUntil:null,results:null,resultsTimer:null,meta:m.meta||null,pick:m.meta||null,players:new Map(),start:null,check:false};rooms.set(code,room);totals.roomsCreated++;
+            if(rooms.size>=100)throw Error('Relay is full');const code=randomBytes(8).toString('hex').toUpperCase();const solo=m.solo===true;const capacity=solo?1:Math.max(2,Math.min(16,Number.isInteger(m.capacity)?m.capacity:8));room={code,hostId:ws.id,mode:m.mode==='shared'?'shared':'ghost',capacity,solo,collide:true,locked:false,launched:!!m.meta,gate:false,launchId:0,launchSeq:0,lobbyRev:0,rosterLaunch:0,phase:'lobby',rules:null,countdownMs:null,lingerMs:45000,lingerUntil:null,results:null,resultsTimer:null,meta:m.meta||null,pick:m.meta||null,players:new Map(),start:null,check:false};rooms.set(code,room);totals.roomsCreated++;
             Object.assign(room,{name:cleanLabel(m.roomName)||cleanLabel(m.name,24)+"'s room",visibility:m.visibility||'friends',password,createdAt:Date.now()});
           }else{
             limitedAccess(ws);
@@ -563,7 +571,7 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000,restartVoteMs=3
           if(ws.id!==room.hostId)throw Error('Only the host can reset the world');
           if(room.mode!=='shared')throw Error('Reset world is only for Shared Physics');
           if(!room.meta)throw Error('Load a level first');
-          if(room.players.size<2)throw Error('Need another racer before starting');
+          if(!enoughRacers(room))throw Error('Need another racer before starting');
           if(room.rules?.play==='survival'&&(room.start||room.results)){requestRestart(room,ws,{launchId:room.launchId});return;}
           if(m.meta&&validMeta(m.meta)&&core.compatible(room.meta,m.meta))room.meta=m.meta;
           launchRoom(room);
@@ -585,12 +593,11 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000,restartVoteMs=3
             if(!validMeta(chosen)||chosen.source!=='jimbob')throw Error('Invalid hosted map response.');
           }
           const rules=cleanRules(rawRules);
-          if(rules.seats&&room.players.size>rules.seats)throw Error('Too many players for this map');
+          applyMapRules(room,rules);
           clearResultsTimer(room);
           room.results=null;room.lingerUntil=null;room.rules=rules;
           room.countdownMs=rules.waitSec?rules.waitSec*1000:null;
           room.lingerMs=rules.lingerMs||45000;
-          if(rules.seats)room.capacity=rules.seats;
           const picked={protocol:chosen.protocol,level:chosen.level,hash:chosen.hash,title:String(chosen.title||'').slice(0,80),author:String(chosen.author||'').slice(0,40),...(chosen.source==='jimbob'?{source:'jimbob',mapId:chosen.mapId,revision:chosen.revision}:{})};
           room.meta=picked;room.pick=picked;ws.meta=picked;
           resetReady(room);
@@ -606,7 +613,7 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000,restartVoteMs=3
         if(m.type==='launch'||m.type==='again'){
           if(ws.id!==room.hostId)throw Error('Only the host can start the level');
           if(!room.meta)throw Error('Pick a level first');
-          if(room.players.size<2)throw Error('Need another racer before starting');
+          if(!enoughRacers(room))throw Error('Need another racer before starting');
           if(room.rules?.play==='survival'&&(room.start||room.results)){requestRestart(room,ws,{launchId:room.launchId});return;}
           if(!room.results&&!room.launched&&!allLobbyReady(room))throw Error('Wait for everyone to ready up');
           launchRoom(room);
@@ -642,9 +649,8 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000,restartVoteMs=3
           if(room.rules?.play==='survival'&&core.compatible(room.meta,m.meta)&&(room.start||room.results)){requestRestart(room,ws,{launchId:room.launchId});return;}
           if(!core.compatible(room.meta,m.meta)){
             const rules=cleanRules(m.rules);
-            if(rules.seats&&room.players.size>rules.seats)throw Error('Too many players for this map');
+            applyMapRules(room,rules);
             room.rules=rules;room.countdownMs=rules.waitSec?rules.waitSec*1000:null;room.lingerMs=rules.lingerMs||45000;
-            if(rules.seats)room.capacity=rules.seats;
           }
           room.meta=m.meta;room.pick=m.meta;ws.meta=m.meta;
           launchRoom(room);
@@ -665,9 +671,10 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000,restartVoteMs=3
           if(!room.meta||!validMeta(m.meta)||!core.compatible(room.meta,m.meta))throw Error('Level does not match this room');
           if(!room.launched){
             if(ws.id===room.hostId){
-              if(room.players.size<2)throw Error('Need another racer before starting');
+              if(!enoughRacers(room))throw Error('Need another racer before starting');
               resetReady(room);room.check=true;ws.ready=true;ws.meta=m.meta;state(room);
               broadcast(room,{type:'readyCheck',name:ws.name,meta:room.meta});
+              if(allLobbyReady(room))launchRoom(room);
               return;
             }
             if(!room.check)throw Error('Wait for the host to ask if everyone is ready');
@@ -678,10 +685,11 @@ function createRelay({host='127.0.0.1',port=19799,countdown=3000,restartVoteMs=3
           }
           if(room.launchId)throw Error('The race starts when everyone has finished loading');
           if(ws.id===room.hostId){
-            if(room.players.size<2)throw Error('Need another racer before starting');
+            if(!enoughRacers(room))throw Error('Need another racer before starting');
             if(!allInGame(room))throw Error('Wait for everyone to select a character');
             resetReady(room);room.check=true;ws.ready=true;ws.meta=m.meta;ws.phase='ingame';state(room);
             broadcast(room,{type:'readyCheck',name:ws.name,meta:room.meta});
+            if(allReady(room))beginRace(room);
             return;
           }
           if(!room.check)throw Error('Wait for the host to ask if everyone is ready');
