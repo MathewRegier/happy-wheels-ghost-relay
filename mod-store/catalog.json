@@ -1,29 +1,29 @@
 {
-  "updated": "2026-10-14",
+  "updated": "2026-11-09",
   "host": "github",
   "mods": [
     {
       "id": "jimbobs-custom-characters",
       "name": "Jimbob's Custom Characters",
-      "version": "0.5.0",
+      "version": "0.5.2",
       "author": "Jimbob \u00b7 Discord jimbob1111",
       "description": "Paint any Happy Wheels character and keep your own riders. Open Custom Characters on the title screen, recolour and draw without changing physics, and make the menu icon in the same editor. Characters stay saved across updates. Share a .jskin file or browse Community skins. Extra characters page on the character select screen.",
-      "file": "zips/jimbobs-custom-characters-0.5.0.zip",
-      "sha256": "e052ddd0e95a5dcf072f93c0061c142a51cd6bdd620d0ea9adbe67b8acb08697"
+      "file": "zips/jimbobs-custom-characters-0.5.2.zip",
+      "sha256": "21097dfb1d519cdba97d42db3dda7f57a4f8d9d5c565228d774dbdae09579abd"
     },
     {
       "id": "jimbobs-multiplayer",
       "name": "Jimbob's Multiplayer Mod",
-      "version": "0.7.5",
+      "version": "0.7.6",
       "author": "Jimbob \u00b7 Discord jimbob1111",
-      "description": "Race friends on the same level. Ghost Multiplayer shows other players as ghosts. Shared Physics is one shared world where you can bump. Full-screen lobby, public room browser, and a card level selector with a Multiplayer Maps section. Live scoreboard, rooms for 2 to 16 players, and a hosted relay. Custom character skins show when both players have the same pack. Created by Jimbob — Discord jimbob1111. Play published tycoon and Studio maps without Builder, or start a solo room. Everyone should use 0.7.5.",
-      "file": "zips/jimbobs-multiplayer-0.7.5.zip",
-      "sha256": "e435f8d68c3edf4199f318bee7b6f85182c8a18cb1fad8e9fcb428abd82a0aa3"
+      "description": "Ghost racing and host-run Shared Physics, public rooms, Steam invites and chat. Browse and play Jimbob Maps with automatic verified downloads. Play published tycoon and Studio maps, or start a solo room. Builder is not required for players.",
+      "file": "zips/jimbobs-multiplayer-0.7.6.zip",
+      "sha256": "a4f8a48ae56d0f995e7be3477781f59385d762cdf420dcf2579c62bd033b1303"
     }
   ],
   "launcher": {
-    "version": "0.2.4",
-    "file": "https://github.com/MathewRegier/jhwml/releases/download/v0.2.4/JHWML-Mod-Launcher-0.2.4.zip",
-    "sha256": "36a435100c795d50eadf260cfedfb83cab76d82187b1c9507847539827000cea"
+    "version": "0.2.5",
+    "file": "https://github.com/MathewRegier/jhwml/releases/download/v0.2.5/JHWML-Mod-Launcher-0.2.5.zip",
+    "sha256": "9b41f720a59132454b1c28547d9716e2dba9c98beed44137e578aea686cf4520"
   }
 }
