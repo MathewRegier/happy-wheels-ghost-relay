@@ -14,16 +14,16 @@
     {
       "id": "jimbobs-multiplayer",
       "name": "Jimbob's Multiplayer Mod",
-      "version": "0.7.6",
+      "version": "0.7.7",
       "author": "Jimbob \u00b7 Discord jimbob1111",
       "description": "Ghost racing and host-run Shared Physics, public rooms, Steam invites and chat. Browse and play Jimbob Maps with automatic verified downloads. Play published tycoon and Studio maps, or start a solo room. Builder is not required for players.",
-      "file": "zips/jimbobs-multiplayer-0.7.6.zip",
-      "sha256": "a4f8a48ae56d0f995e7be3477781f59385d762cdf420dcf2579c62bd033b1303"
+      "file": "zips/jimbobs-multiplayer-0.7.7.zip",
+      "sha256": "ed4f5cab719fbbb322d79b88eb1533bd65a4d54beed81aebaaa15a24357bb0b0"
     }
   ],
   "launcher": {
-    "version": "0.2.5",
-    "file": "https://github.com/MathewRegier/jhwml/releases/download/v0.2.5/JHWML-Mod-Launcher-0.2.5.zip",
-    "sha256": "5f831f8ac854c8de304ab3a48c808a7b132bf8f33a4278af7343fbfe41e9ebef"
+    "version": "0.2.6",
+    "file": "https://github.com/MathewRegier/jhwml/releases/download/v0.2.6/JHWML-Mod-Launcher-0.2.6.zip",
+    "sha256": "5e019e2f8393ca1fc321ec79ca4a2aa73867dc4b33fed56002355e6bf723722a"
   }
 }
