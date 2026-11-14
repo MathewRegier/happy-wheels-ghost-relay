@@ -5,20 +5,20 @@
     {
       "id": "jimbobs-custom-characters",
       "name": "Jimbob's Custom Characters",
-      "version": "0.5.3",
+      "version": "0.5.4",
       "author": "Jimbob \u00b7 Discord jimbob1111",
       "description": "Paint any Happy Wheels character and keep your own riders. Open Custom Characters on the title screen, recolour and draw without changing physics, and make the menu icon in the same editor. Characters stay saved across updates. Share a .jskin file or browse Community skins. Extra characters page on the character select screen.",
-      "file": "zips/jimbobs-custom-characters-0.5.3.zip",
-      "sha256": "bdffcffc106e4c970d56b27b1eda59b3b755ac5bb05119e378794bd0544438c0"
+      "file": "zips/jimbobs-custom-characters-0.5.4.zip",
+      "sha256": "872e239a9c2f667412e1d2212947c8717fbd00f55289d0f808f88624038496bc"
     },
     {
       "id": "jimbobs-multiplayer",
       "name": "Jimbob's Multiplayer Mod",
-      "version": "0.7.8",
+      "version": "0.7.9",
       "author": "Jimbob \u00b7 Discord jimbob1111",
       "description": "Ghost racing and host-run Shared Physics, public rooms, Steam invites and chat. Browse and play Jimbob Maps with automatic verified downloads. Play published tycoon and Studio maps, or start a solo room. Builder is not required for players.",
-      "file": "zips/jimbobs-multiplayer-0.7.8.zip",
-      "sha256": "fe914cd78269d8450af2edffe0da7e74a3704e63627f817cbf457ed5396d5186"
+      "file": "zips/jimbobs-multiplayer-0.7.9.zip",
+      "sha256": "6a2e7086eee91ab6c89e95b41696373db6abd8be976409c4a8a2e86a4e321379"
     }
   ],
   "launcher": {
