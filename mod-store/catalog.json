@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-13",
+  "updated": "2026-11-17",
   "host": "github",
   "mods": [
     {
@@ -14,11 +14,11 @@
     {
       "id": "jimbobs-multiplayer",
       "name": "Jimbob's Multiplayer Mod",
-      "version": "0.7.9",
+      "version": "0.7.10",
       "author": "Jimbob \u00b7 Discord jimbob1111",
       "description": "Ghost racing and host-run Shared Physics, public rooms, Steam invites and chat. Browse and play Jimbob Maps with automatic verified downloads. Play published tycoon and Studio maps, or start a solo room. Builder is not required for players.",
-      "file": "zips/jimbobs-multiplayer-0.7.9.zip",
-      "sha256": "6a2e7086eee91ab6c89e95b41696373db6abd8be976409c4a8a2e86a4e321379"
+      "file": "zips/jimbobs-multiplayer-0.7.10.zip",
+      "sha256": "452fc4a70c5b69b5dc9a6d2c93240a57b5f3c50e8c193ea980eda0a4d91d0999"
     }
   ],
   "launcher": {
